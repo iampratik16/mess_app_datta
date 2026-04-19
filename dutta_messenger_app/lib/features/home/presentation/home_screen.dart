@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
+import '../../acl/data/acl_api.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/login_screen.dart';
+import '../../dm/presentation/dm_list_screen.dart';
+import '../../groups/presentation/groups_screen.dart';
+import '../../notifications/presentation/notifications_bell.dart';
+import '../../users/presentation/users_screen.dart';
 
 /// Landing screen shown after a successful sign in.
 /// Displays the authenticated user, exposes the invite flow, and lets the
@@ -19,8 +24,27 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _repo = AuthRepository();
+  final _aclApi = AclApi();
   bool _isInviting = false;
   String? _inviteStatus;
+  List<String>? _permissions;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPermissions();
+  }
+
+  Future<void> _loadPermissions() async {
+    try {
+      final perms = await _aclApi.permissionsFor(widget.user.id);
+      if (!mounted) return;
+      setState(() => _permissions = perms);
+    } on ApiError {
+      if (!mounted) return;
+      setState(() => _permissions = const []);
+    }
+  }
 
   Future<void> _invite() async {
     final controller = TextEditingController();
@@ -88,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text('DuttaMessenger',
             style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
         actions: [
+          const NotificationsBell(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
@@ -108,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,24 +176,64 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 18),
+                _ActionTile(
+                  icon: Icons.groups_outlined,
+                  label: 'Groups',
+                  subtitle: 'Browse or create group chats',
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white54),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => GroupsScreen(me: widget.user)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ActionTile(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Direct messages',
+                  subtitle: 'One-on-one conversations',
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white54),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DmListScreen(me: widget.user),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ActionTile(
+                  icon: Icons.people_alt_outlined,
+                  label: 'People',
+                  subtitle: 'Browse users in your institution',
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white54),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => UsersScreen(me: widget.user)),
+                  ),
+                ),
+                if (_permissions != null && _permissions!.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  _SectionTitle('Your permissions (${_permissions!.length})'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _permissions!
+                        .take(12)
+                        .map((p) => _PermChip(label: p))
+                        .toList(),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 _SectionTitle('Coming soon'),
                 const SizedBox(height: 12),
                 _DisabledTile(
-                  icon: Icons.chat_bubble_outline,
-                  label: 'Direct messages',
-                ),
-                const SizedBox(height: 10),
-                _DisabledTile(
-                  icon: Icons.groups_outlined,
-                  label: 'Groups',
-                ),
-                const SizedBox(height: 10),
-                _DisabledTile(
                   icon: Icons.forum_outlined,
                   label: 'Topics',
                 ),
-                const Spacer(),
+                const SizedBox(height: 32),
                 Text(
                   'Institution: ${user.institutionId}',
                   textAlign: TextAlign.center,
@@ -177,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.white24,
                   ),
                 ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
@@ -377,6 +443,32 @@ class _DisabledTile extends StatelessWidget {
                 fontStyle: FontStyle.italic,
               )),
         ],
+      ),
+    );
+  }
+}
+
+/// Small pill shown for each ACL permission the current user has.
+class _PermChip extends StatelessWidget {
+  const _PermChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFF667EEA).withValues(alpha: 0.15),
+        border: Border.all(
+            color: const Color(0xFF667EEA).withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 11,
+          color: const Color(0xFFB3BCF5),
+        ),
       ),
     );
   }

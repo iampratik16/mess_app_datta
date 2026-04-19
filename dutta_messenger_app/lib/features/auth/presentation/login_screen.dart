@@ -17,8 +17,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'admin@smoke.test');
-  final _passwordController = TextEditingController(text: 'Sup3rStr0ng!');
+  final _emailController = TextEditingController(text: 'admin@demo.school');
+  final _passwordController = TextEditingController(text: 'DemoPass123!');
   final _repo = AuthRepository();
 
   bool _isLoading = false;
