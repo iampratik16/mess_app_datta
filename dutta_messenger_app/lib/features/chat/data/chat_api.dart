@@ -12,11 +12,20 @@ class ChatApi {
   ChatApi() : _dio = ApiClient().dio;
 
   /// POST /chat/conversations/open-group
-  Future<Conversation> openGroupConversation(String groupId) async {
+  ///
+  /// For topics-mode groups, pass [topicId] — each topic is a distinct
+  /// conversation. Simple-mode groups omit it.
+  Future<Conversation> openGroupConversation(
+    String groupId, {
+    String? topicId,
+  }) async {
     try {
       final r = await _dio.post(
         '/chat/conversations/open-group',
-        data: {'group_id': groupId},
+        data: {
+          'group_id': groupId,
+          if (topicId != null) 'topic_id': topicId,
+        },
       );
       return Conversation.fromJson(r.data['data'] as Map<String, dynamic>);
     } on DioException catch (e) {

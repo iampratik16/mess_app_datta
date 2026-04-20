@@ -19,11 +19,16 @@ class ChatScreen extends StatefulWidget {
     required this.groupId,
     required this.groupName,
     required this.me,
+    this.topicId,
   });
 
   final String groupId;
   final String groupName;
   final AuthUser me;
+
+  /// If set, the screen opens the conversation for this topic within a
+  /// topics-mode group. Simple-mode groups leave this null.
+  final String? topicId;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -57,7 +62,10 @@ class _ChatScreenState extends State<ChatScreen> {
       _error = null;
     });
     try {
-      final conv = await _api.openGroupConversation(widget.groupId);
+      final conv = await _api.openGroupConversation(
+        widget.groupId,
+        topicId: widget.topicId,
+      );
       final msgs = await _api.listMessages(conv.id);
       if (!mounted) return;
       setState(() {
@@ -162,6 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 builder: (_) => GroupMembersScreen(
                   groupId: widget.groupId,
                   groupName: widget.groupName,
+                  me: widget.me,
                 ),
               ),
             ),

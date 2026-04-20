@@ -6,6 +6,7 @@ import '../../chat/presentation/chat_screen.dart';
 import '../../dm/data/dm_repository.dart';
 import '../data/groups_api.dart';
 import '../domain/group_models.dart';
+import 'topics_screen.dart';
 
 /// Lists groups for the current institution. Tap a row to open its chat.
 class GroupsScreen extends StatefulWidget {
@@ -51,50 +52,46 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Future<void> _createGroupDialog() async {
-    final nameCtrl = TextEditingController();
-    final name = await showDialog<String>(
+    final result = await showDialog<_NewGroupResult>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B3A),
-        title: Text('New group',
-            style: GoogleFonts.outfit(color: Colors.white)),
-        content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Group name',
-            hintStyle: TextStyle(color: Colors.white38),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
-              child: const Text('Create')),
-        ],
-      ),
+      builder: (_) => const _CreateGroupDialog(),
     );
-    if (name == null || name.isEmpty) return;
-
+    if (result == null) return;
     try {
-      final group = await _api.createGroup(name: name);
+      final group = await _api.createGroup(
+        name: result.name,
+        description: result.description,
+        mode: result.mode,
+      );
       if (!mounted) return;
       setState(() => _groups = [group, ..._groups]);
+      _openGroup(group);
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _error = '${e.code}: ${e.message}');
     }
   }
 
-  void _openChat(Group g) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            ChatScreen(groupId: g.id, groupName: g.name, me: widget.me),
-      ),
-    );
+  /// Route the tap based on mode — spec §11: simple → straight to chat,
+  /// topics → topic list first.
+  void _openGroup(Group g) {
+    if (g.mode == 'topics') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TopicsScreen(group: g, me: widget.me),
+        ),
+      );
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            groupId: g.id,
+            groupName: g.name,
+            me: widget.me,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -145,7 +142,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                                 const SizedBox(height: 10),
                             itemBuilder: (ctx, i) => _GroupRow(
                               group: _groups[i],
-                              onTap: () => _openChat(_groups[i]),
+                              onTap: () => _openGroup(_groups[i]),
                             ),
                           ),
           ),
@@ -280,4 +277,195 @@ class _ErrorState extends StatelessWidget {
           ),
         ),
       );
+}
+
+class _NewGroupResult {
+  const _NewGroupResult({
+    required this.name,
+    required this.mode,
+    this.description,
+  });
+  final String name;
+  final String mode;
+  final String? description;
+}
+
+/// Create-group modal with name + description + mode picker, per
+/// spec §1. Mode cannot be changed after creation, so this is the
+/// only place the user picks it.
+class _CreateGroupDialog extends StatefulWidget {
+  const _CreateGroupDialog();
+
+  @override
+  State<_CreateGroupDialog> createState() => _CreateGroupDialogState();
+}
+
+class _CreateGroupDialogState extends State<_CreateGroupDialog> {
+  final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  String _mode = 'simple';
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1B3A),
+      title: Text('New group',
+          style: GoogleFonts.outfit(color: Colors.white)),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameCtrl,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                labelStyle: TextStyle(color: Colors.white70),
+                hintText: 'e.g. Staff Room',
+                hintStyle: TextStyle(color: Colors.white30),
+              ),
+              maxLength: 255,
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _descCtrl,
+              style: const TextStyle(color: Colors.white),
+              maxLines: 2,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'Description (optional)',
+                labelStyle: TextStyle(color: Colors.white70),
+                hintStyle: TextStyle(color: Colors.white30),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('Type',
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70)),
+            const SizedBox(height: 6),
+            _ModeTile(
+              value: 'simple',
+              groupValue: _mode,
+              title: 'Simple',
+              subtitle: 'One chat, one timeline (like WhatsApp)',
+              onTap: () => setState(() => _mode = 'simple'),
+            ),
+            _ModeTile(
+              value: 'topics',
+              groupValue: _mode,
+              title: 'Topics',
+              subtitle: 'Channels inside the group (like Slack)',
+              onTap: () => setState(() => _mode = 'topics'),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'You cannot change this later.',
+              style: GoogleFonts.inter(fontSize: 11, color: Colors.white38),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = _nameCtrl.text.trim();
+            if (name.isEmpty) return;
+            Navigator.pop(
+              context,
+              _NewGroupResult(
+                name: name,
+                mode: _mode,
+                description: _descCtrl.text.trim().isEmpty
+                    ? null
+                    : _descCtrl.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeTile extends StatelessWidget {
+  const _ModeTile({
+    required this.value,
+    required this.groupValue,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final String value;
+  final String groupValue;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = value == groupValue;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF667EEA)
+                : Colors.white.withValues(alpha: 0.12),
+            width: selected ? 1.5 : 1,
+          ),
+          color: selected
+              ? const Color(0xFF667EEA).withValues(alpha: 0.12)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: selected ? const Color(0xFF8A9CF5) : Colors.white38,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: Colors.white54)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

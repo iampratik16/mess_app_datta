@@ -87,6 +87,94 @@ class GroupsApi {
       throw ApiError.fromDioException(e);
     }
   }
+
+  /// GET /groups/{id} — single group (members-only; 404 for non-members).
+  Future<Group> getGroup(String groupId) async {
+    try {
+      final r = await _dio.get('/groups/$groupId');
+      return Group.fromJson(r.data['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// PATCH /groups/{id} — admin/owner only. Send only fields that change.
+  Future<Group> updateGroup({
+    required String groupId,
+    String? name,
+    String? description,
+    String? avatarUrl,
+  }) async {
+    final body = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    };
+    try {
+      final r = await _dio.patch('/groups/$groupId', data: body);
+      return Group.fromJson(r.data['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// DELETE /groups/{id} — owner only. Soft-delete (sets is_archived).
+  Future<void> archiveGroup(String groupId) async {
+    try {
+      await _dio.delete('/groups/$groupId');
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// GET /groups/{id}/topics — empty list for simple-mode groups.
+  Future<List<Topic>> listTopics(String groupId) async {
+    try {
+      final r = await _dio.get('/groups/$groupId/topics');
+      final data = r.data['data'];
+      if (data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(Topic.fromJson)
+            .toList();
+      }
+      return const [];
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// POST /groups/{id}/topics — admin/owner, topics-mode groups only.
+  Future<Topic> createTopic({
+    required String groupId,
+    required String name,
+    String? description,
+    String? iconEmoji,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+      if (description != null) 'description': description,
+      if (iconEmoji != null) 'icon_emoji': iconEmoji,
+    };
+    try {
+      final r = await _dio.post('/groups/$groupId/topics', data: body);
+      return Topic.fromJson(r.data['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// DELETE /groups/{id}/topics/{topic_id} — admin/owner, cannot delete "General".
+  Future<void> deleteTopic({
+    required String groupId,
+    required String topicId,
+  }) async {
+    try {
+      await _dio.delete('/groups/$groupId/topics/$topicId');
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
 }
 
 /// A group membership row — wraps the nested user + role.
