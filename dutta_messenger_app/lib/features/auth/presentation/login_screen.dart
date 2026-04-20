@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/auth_repository.dart';
 import '../../../core/errors/api_error.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/storage/secure_storage.dart';
+import '../../../services/chat_service.dart';
 import '../../home/presentation/home_screen.dart';
 
 /// Premium login screen for DuttaMessenger.
@@ -17,8 +19,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'admin@demo.school');
-  final _passwordController = TextEditingController(text: 'DemoPass123!');
+  final _emailController =
+      TextEditingController(text: AppConfig.defaultLoginEmail);
+  final _passwordController =
+      TextEditingController(text: AppConfig.defaultLoginPassword);
   final _repo = AuthRepository();
 
   bool _isLoading = false;
@@ -66,6 +70,10 @@ class _LoginScreenState extends State<LoginScreen>
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      // Open the persistent WS connection for this user.
+      // One socket per logged-in user; survives screen changes until logout.
+      final token = await SecureTokenStorage.getAccessToken();
+      if (token != null) ChatService.instance.connect(token);
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => HomeScreen(user: user)),

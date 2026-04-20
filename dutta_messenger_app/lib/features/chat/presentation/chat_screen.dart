@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../../core/errors/api_error.dart';
+import '../../../services/chat_service.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../groups/presentation/group_members_screen.dart';
 import '../data/chat_api.dart';
@@ -35,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loading = true;
   bool _sending = false;
   String? _error;
+  StreamSubscription<Map<String, dynamic>>? _messageSub;
 
   @override
   void initState() {
@@ -42,6 +47,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _bootstrap();
   }
 
+  /// One-time history load + subscribe to the real-time stream.
+  /// The WebSocket itself is owned by [ChatService] (opened at login) and
+  /// survives navigation; this screen only attaches a listener to one
+  /// conversation's stream.
   Future<void> _bootstrap() async {
     setState(() {
       _loading = true;
@@ -57,6 +66,11 @@ class _ChatScreenState extends State<ChatScreen> {
         _loading = false;
       });
       _scrollToBottomSoon();
+
+      // Subscribe for real-time message.new frames for this conversation.
+      ChatService.instance.subscribe(conv.id);
+      _messageSub?.cancel();
+      _messageSub = ChatService.instance.messages(conv.id).listen(_onWsMessage);
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() {
@@ -66,27 +80,37 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Merge a live message pushed over the WS. Dedupe by id so the sender's
+  /// own REST-posted message doesn't render twice (server echoes it back).
+  void _onWsMessage(Map<String, dynamic> payload) {
+    if (!mounted) return;
+    final Message msg;
+    try {
+      msg = Message.fromJson(payload);
+    } catch (_) {
+      return;
+    }
+    if (_messages.any((m) => m.id == msg.id)) return;
+    setState(() => _messages = [..._messages, msg]);
+    _scrollToBottomSoon();
+  }
+
   Future<void> _send() async {
     final text = _inputController.text.trim();
     final conv = _conversation;
     if (text.isEmpty || conv == null) return;
     setState(() => _sending = true);
+
+    // Send via REST. The server persists the message and broadcasts it
+    // over the WS to every subscriber — including us — so the sender's
+    // bubble is added by [_onWsMessage] on the echo (no optimistic add).
     try {
-      final msg = await _api.sendMessage(
-        conversationId: conv.id,
-        content: text,
-      );
+      await _api.sendMessage(conversationId: conv.id, content: text);
       if (!mounted) return;
       setState(() {
-        _messages = [..._messages, msg];
         _inputController.clear();
         _sending = false;
       });
-      _scrollToBottomSoon();
-      // Best-effort read receipt — don't block UI on failure.
-      _api
-          .markRead(conversationId: conv.id, lastReadMessageId: msg.id)
-          .catchError((_) {});
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() {
@@ -110,6 +134,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // Cancel the stream listener; do NOT disconnect the WS — it must
+    // survive screen changes. The singleton closes only on logout.
+    _messageSub?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -138,10 +165,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _bootstrap,
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
+import '../../../services/chat_service.dart';
 import '../../acl/data/acl_api.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/auth_models.dart';
@@ -94,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
+    ChatService.instance.disconnect();
     await _repo.logout();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(

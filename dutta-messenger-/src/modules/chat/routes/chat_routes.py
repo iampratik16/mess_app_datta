@@ -89,7 +89,17 @@ async def send_message(
     current_user: dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Send a message. REST fallback for the WebSocket path."""
+    """Send a message. REST fallback for the WebSocket path.
+
+    Per `docs/ui-contract/websocket-integration.md` §5.1 Option A the REST
+    route is expected to fan out a `message.new` frame over WebSocket to
+    every subscriber of the conversation. Without this, Flutter clients
+    that follow Option A (REST send) see the receiver stuck until they
+    navigate away and back. Keep the in-transaction broadcast tiny —
+    the payload mirrors the one the WS handler emits.
+    """
+    from src.modules.chat.routes.ws_routes import _broadcast  # local to avoid cycle
+
     msg = await MessageService.send_message(
         db,
         institution_id=current_user["institution_id"],
@@ -97,6 +107,26 @@ async def send_message(
         conversation_id=conversation_id,
         content=data.content,
         reply_to_message_id=data.reply_to_message_id,
+    )
+    await _broadcast(
+        str(conversation_id),
+        {
+            "type": "message.new",
+            "message": {
+                "id": str(msg.id),
+                "conversation_id": str(conversation_id),
+                "sender_id": str(current_user["user_id"]),
+                "content": msg.content,
+                "reply_to_message_id": (
+                    str(msg.reply_to_message_id)
+                    if msg.reply_to_message_id
+                    else None
+                ),
+                "created_at": (
+                    msg.created_at.isoformat() if msg.created_at else None
+                ),
+            },
+        },
     )
     return success_response(MessageResponse.model_validate(msg))
 
