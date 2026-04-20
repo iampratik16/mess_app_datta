@@ -8,6 +8,7 @@ import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../dm/presentation/dm_list_screen.dart';
 import '../../groups/presentation/groups_screen.dart';
+import '../../media/presentation/media_screen.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../../users/presentation/users_screen.dart';
 
@@ -213,6 +214,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (_) => UsersScreen(me: widget.user)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ActionTile(
+                  icon: Icons.cloud_upload_outlined,
+                  label: 'Media',
+                  subtitle: 'Upload images, videos, and files',
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white54),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MediaScreen()),
                   ),
                 ),
                 if (_permissions != null && _permissions!.isNotEmpty) ...[

@@ -53,6 +53,14 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- Privacy descriptions required for image_picker + file_picker.
+	     Shown by iOS the first time each permission is requested. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>DuttaMessenger needs access to your photos so you can share images in chats.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>DuttaMessenger needs camera access to take and send photos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DuttaMessenger needs microphone access to record audio for voice messages.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
