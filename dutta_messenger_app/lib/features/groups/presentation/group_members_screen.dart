@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../media/data/avatar_picker.dart';
 import '../../users/data/users_api.dart';
@@ -110,10 +112,8 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     final added = await showModalBottomSheet<UserProfile>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1B3A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (_) => _AddMemberSheet(excludedUserIds: existingIds),
     );
     if (added == null || !mounted) return;
@@ -142,7 +142,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Add failed: ${e.message}'),
         ),
       );
@@ -176,7 +176,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Update failed: ${e.message}'),
         ),
       );
@@ -184,29 +184,13 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   }
 
   Future<void> _archiveGroup() async {
-    final ok = await showDialog<bool>(
+    final ok = await _showCreamConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B3A),
-        title: Text('Archive "${widget.groupName}"?',
-            style: GoogleFonts.outfit(color: Colors.white)),
-        content: Text(
+      title: 'Archive "${widget.groupName}"?',
+      body:
           'The group disappears from everyone\'s list. Messages are kept '
           'and deep links still work. There is no unarchive yet.',
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4757)),
-            child: const Text('Archive'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Archive',
     );
     if (ok != true) return;
     try {
@@ -218,7 +202,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Archive failed: ${e.message}'),
         ),
       );
@@ -227,29 +211,12 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
 
   Future<void> _removeMember(GroupMember m) async {
     if (m.role == 'owner' || m.userId == widget.me.id) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await _showCreamConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B3A),
-        title: Text('Remove ${m.user?.fullName ?? m.userId}?',
-            style: GoogleFonts.outfit(color: Colors.white)),
-        content: Text(
-          'They will stop receiving new messages in this group. '
+      title: 'Remove ${m.user?.fullName ?? m.userId}?',
+      body: 'They will stop receiving new messages in this group. '
           'Past messages stay visible to them.',
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4757)),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
     );
     if (confirmed != true) return;
 
@@ -263,7 +230,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       setState(() => _members = snapshot);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Remove failed: ${e.message}'),
         ),
       );
@@ -283,29 +250,34 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         return na.compareTo(nb);
       });
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.groupName,
-                style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w700, fontSize: 17)),
-            Text(
-              _loading ? 'Loading…' : '${_members.length} members',
-              style:
-                  GoogleFonts.inter(fontSize: 11, color: Colors.white54),
-            ),
-          ],
+      backgroundColor: kCream,
+      appBar: CreamAppBar(
+        title: widget.groupName,
+        subtitle: _loading
+            ? 'Loading…'
+            : '${_members.length} ${_members.length == 1 ? 'member' : 'members'}',
+        leadingAvatar: CreamAvatar(
+          seed: widget.groupName,
+          initials: widget.groupName.isEmpty
+              ? '?'
+              : widget.groupName.substring(0, 1).toUpperCase(),
+          size: 36,
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: kAccentDeep),
+            onPressed: _load,
+            tooltip: 'Refresh',
+          ),
           if (_canManage)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              color: const Color(0xFF1E1B3A),
+              icon: const Icon(Icons.more_vert, color: kAccentDeep),
+              color: kCreamCard,
+              surfaceTintColor: kCreamCard,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: kHairline),
+              ),
               onSelected: (v) {
                 switch (v) {
                   case 'edit':
@@ -315,23 +287,30 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
                   child: Row(children: [
-                    Icon(Icons.edit, size: 18, color: Colors.white70),
-                    SizedBox(width: 10),
-                    Text('Edit group', style: TextStyle(color: Colors.white)),
+                    const Icon(Icons.edit, size: 18, color: kInkMuted),
+                    const SizedBox(width: 10),
+                    Text('Edit group',
+                        style: GoogleFonts.inter(
+                          color: kInkDark,
+                          fontWeight: FontWeight.w600,
+                        )),
                   ]),
                 ),
                 if (_isOwner)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'archive',
                     child: Row(children: [
-                      Icon(Icons.archive_outlined,
-                          size: 18, color: Color(0xFFFF6B7A)),
-                      SizedBox(width: 10),
+                      const Icon(Icons.archive_outlined,
+                          size: 18, color: kDangerInk),
+                      const SizedBox(width: 10),
                       Text('Archive group',
-                          style: TextStyle(color: Color(0xFFFF6B7A))),
+                          style: GoogleFonts.inter(
+                            color: kDangerInk,
+                            fontWeight: FontWeight.w600,
+                          )),
                     ]),
                   ),
               ],
@@ -340,26 +319,18 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       ),
       floatingActionButton: _canManage
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF667EEA),
+              backgroundColor: kAccent,
+              foregroundColor: Colors.white,
+              elevation: 2,
               onPressed: _openAddMemberSheet,
-              icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-              label: const Text('Add member',
-                  style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text('Add member',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             )
           : null,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
-        child: SafeArea(child: _buildBody(sorted)),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
+        child: SafeArea(top: false, child: _buildBody(sorted)),
       ),
     );
   }
@@ -367,7 +338,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   Widget _buildBody(List<GroupMember> rows) {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
@@ -375,21 +346,20 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(_error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 13)),
+              style: GoogleFonts.inter(color: kDangerInk, fontSize: 13)),
         ),
       );
     }
     if (rows.isEmpty) {
       return Center(
         child: Text('No members yet',
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+            style: GoogleFonts.inter(color: kInkMuted, fontSize: 14)),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
       itemCount: rows.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => kListDivider,
       itemBuilder: (ctx, i) {
         final m = rows[i];
         final canRemove =
@@ -423,51 +393,14 @@ class _MemberRow extends StatelessWidget {
     final initials = user?.initials ?? '?';
     final name = user?.fullName ?? '(unknown)';
     final email = user?.email ?? member.userId;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  ),
-                ),
-                child: Text(
-                  initials,
-                  style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
-                ),
-              ),
-              if (isOnline)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF2ED573),
-                      border: Border.all(
-                          color: const Color(0xFF0F0C29), width: 2),
-                    ),
-                  ),
-                ),
-            ],
+          CreamAvatar(
+            seed: name,
+            initials: initials,
+            online: isOnline,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -477,37 +410,45 @@ class _MemberRow extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(name,
-                          style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white)),
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: kInkDark,
+                        ),
+                      ),
                     ),
                     if (isMe)
                       Padding(
-                        padding: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.only(left: 6),
                         child: Text('(you)',
                             style: GoogleFonts.inter(
-                                fontSize: 11, color: Colors.white38)),
+                                fontSize: 12, color: kInkSubtle)),
                       ),
                   ],
                 ),
-                Text(email,
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: Colors.white54),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(
+                  email,
+                  style: GoogleFonts.inter(fontSize: 13, color: kInkMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
           _RoleChip(role: member.role),
           if (onRemove != null)
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline,
-                  color: Color(0xFFFF6B7A)),
+              icon: const Icon(Icons.remove_circle_outline, color: kDangerInk),
               tooltip: 'Remove from group',
               onPressed: onRemove,
-            ),
+            )
+          else
+            const SizedBox(width: 8),
         ],
       ),
     );
@@ -519,33 +460,68 @@ class _RoleChip extends StatelessWidget {
   final String role;
   @override
   Widget build(BuildContext context) {
-    final color = switch (role) {
-      'owner' => const Color(0xFFF59E0B),
-      'admin' => const Color(0xFF8A9CF5),
-      _ => Colors.white54,
+    final tone = switch (role) {
+      'owner' => CreamTagTone.accent,
+      'admin' => CreamTagTone.info,
+      _ => CreamTagTone.muted,
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: color.withValues(alpha: 0.15),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        role.toUpperCase(),
-        style: GoogleFonts.inter(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color,
-          letterSpacing: 1,
-        ),
-      ),
+    return CreamTag(
+      label: role.toUpperCase(),
+      tone: tone,
     );
   }
 }
 
-/// Debounced user-search sheet. Tapping a row returns the selected
-/// [UserProfile] to the caller.
+/// Reusable confirmation dialog with the cream/amber treatment. Used by
+/// the archive and remove flows so they don't drift in style.
+Future<bool?> _showCreamConfirm({
+  required BuildContext context,
+  required String title,
+  required String body,
+  required String confirmLabel,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: kCreamCard,
+      surfaceTintColor: kCreamCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: kHairline),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.playfairDisplay(
+          color: kInkDark,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      content: Text(
+        body,
+        style: GoogleFonts.inter(color: kInkMuted, fontSize: 13),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          style: TextButton.styleFrom(foregroundColor: kInkMuted),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: FilledButton.styleFrom(
+            backgroundColor: kDangerInk,
+            foregroundColor: Colors.white,
+          ),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Glassmorphic add-member sheet: backdrop-blur over translucent cream
+/// with a hairline highlight, debounced user search, and tappable rows.
 class _AddMemberSheet extends StatefulWidget {
   const _AddMemberSheet({required this.excludedUserIds});
   final Set<String> excludedUserIds;
@@ -611,47 +587,79 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.7,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.person_add_alt_1,
-                      color: Color(0xFF8A9CF5)),
-                  const SizedBox(width: 10),
-                  Text('Add member',
-                      style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _searchCtrl,
-                onChanged: _onQueryChanged,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Search name or email',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.07),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+        height: MediaQuery.of(context).size.height * 0.72,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    kCream.withValues(alpha: 0.78),
+                    kCreamDeep.withValues(alpha: 0.82),
+                  ],
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    width: 1,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Expanded(child: _buildList()),
-            ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: kInkSubtle.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: kAccent.withValues(alpha: 0.18),
+                          ),
+                          child: const Icon(Icons.person_add_alt_1,
+                              color: kAccentDeep, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Add member',
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: kInkDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _GlassSearchField(
+                      controller: _searchCtrl,
+                      onChanged: _onQueryChanged,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(child: _buildList()),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -661,13 +669,12 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
   Widget _buildList() {
     if (_loading && _results.isEmpty) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
         child: Text(_error!,
-            style: GoogleFonts.inter(
-                color: const Color(0xFFFF6B7A), fontSize: 13)),
+            style: GoogleFonts.inter(color: kDangerInk, fontSize: 13)),
       );
     }
     if (_results.isEmpty) {
@@ -676,7 +683,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
           _searchCtrl.text.trim().isEmpty
               ? 'Type to search your institution'
               : 'No matching users',
-          style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+          style: GoogleFonts.inter(color: kInkMuted, fontSize: 14),
         ),
       );
     }
@@ -685,58 +692,118 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) {
         final u = _results[i];
-        return Material(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => Navigator.pop(context, u),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
-                    ),
-                    child: Text(u.initials,
-                        style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(u.fullName ?? '(no name)',
-                            style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
-                        Text(u.email ?? u.id,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                                fontSize: 11, color: Colors.white54)),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.add_circle_outline,
-                      color: Color(0xFF8A9CF5)),
-                ],
-              ),
-            ),
-          ),
+        return _GlassUserTile(
+          user: u,
+          onTap: () => Navigator.pop(context, u),
         );
       },
+    );
+  }
+}
+
+/// Frosted-glass search input — translucent fill so the backdrop blur
+/// behind the sheet remains visible through the field.
+class _GlassSearchField extends StatelessWidget {
+  const _GlassSearchField({required this.controller, required this.onChanged});
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        autofocus: true,
+        cursorColor: kAccentDeep,
+        style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Search name or email',
+          hintStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: kInkSubtle),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+}
+
+/// One row inside the glassmorphic add-member sheet — translucent card
+/// with a [CreamAvatar] and an amber + chip on the trailing edge.
+class _GlassUserTile extends StatelessWidget {
+  const _GlassUserTile({required this.user, required this.onTap});
+  final UserProfile user;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = user.fullName ?? '(no name)';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        splashColor: kAccent.withValues(alpha: 0.10),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+          ),
+          child: Row(
+            children: [
+              CreamAvatar(seed: name, initials: user.initials, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                    Text(
+                      user.email ?? user.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: kInkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: kAccent.withValues(alpha: 0.20),
+                ),
+                child: const Icon(Icons.add, color: kAccentDeep, size: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -787,13 +854,44 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
     });
   }
 
+  InputDecoration _fieldDecoration(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+        floatingLabelStyle:
+            GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+        filled: true,
+        fillColor: kCreamField,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: kHairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: kAccent, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        counterStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 11),
+      );
+
   @override
   Widget build(BuildContext context) {
     final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1B3A),
-      title:
-          Text('Edit group', style: GoogleFonts.outfit(color: Colors.white)),
+      backgroundColor: kCreamCard,
+      surfaceTintColor: kCreamCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: kHairline),
+      ),
+      title: Text(
+        'Edit group',
+        style: GoogleFonts.playfairDisplay(
+          color: kInkDark,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -813,9 +911,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                         clipBehavior: Clip.antiAlias,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                          ),
+                          color: kAccent,
                         ),
                         child: hasAvatar
                             ? Image.network(
@@ -823,17 +919,17 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => const Icon(
                                     Icons.groups,
-                                    color: Colors.white70,
+                                    color: Colors.white,
                                     size: 28),
                               )
                             : const Icon(Icons.groups,
-                                color: Colors.white70, size: 28),
+                                color: Colors.white, size: 28),
                       ),
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF667EEA),
+                          color: kAccentDeep,
                         ),
                         child: _uploadingAvatar
                             ? const SizedBox(
@@ -856,8 +952,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                         : hasAvatar
                             ? 'Tap to change icon'
                             : 'Tap to set group icon',
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: Colors.white60),
+                    style: GoogleFonts.inter(fontSize: 12, color: kInkMuted),
                   ),
                 ),
               ],
@@ -867,30 +962,41 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
               controller: _nameCtrl,
               autofocus: true,
               maxLength: 255,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white70),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Name'),
             ),
+            const SizedBox(height: 6),
             TextField(
               controller: _descCtrl,
               maxLines: 3,
               maxLength: 2000,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                labelStyle: TextStyle(color: Colors.white70),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Description'),
             ),
           ],
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(foregroundColor: kInkMuted),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+        ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: kAccent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          ),
           onPressed: () {
             final newName = _nameCtrl.text.trim();
             final newDesc = _descCtrl.text.trim();
@@ -910,7 +1016,10 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
               ),
             );
           },
-          child: const Text('Save'),
+          child: Text(
+            'Save',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../chat/presentation/chat_screen.dart';
 import '../data/groups_api.dart';
@@ -26,6 +27,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
   String? _error;
   List<Topic> _topics = [];
   String? _myRole; // discovered from the members list; null = unknown
+  int? _memberCount; // best-effort from members list
 
   bool get _canManage => _myRole == 'owner' || _myRole == 'admin';
 
@@ -56,6 +58,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
       setState(() {
         _topics = topics;
         _myRole = role;
+        _memberCount = members.length;
         _loading = false;
       });
     } on ApiError catch (e) {
@@ -99,7 +102,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Create failed: ${e.message}'),
         ),
       );
@@ -111,21 +114,36 @@ class _TopicsScreenState extends State<TopicsScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B3A),
-        title: Text('Delete "${t.name}"?',
-            style: GoogleFonts.outfit(color: Colors.white)),
+        backgroundColor: kCreamCard,
+        surfaceTintColor: kCreamCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: kHairline),
+        ),
+        title: Text(
+          'Delete "${t.name}"?',
+          style: GoogleFonts.playfairDisplay(
+            color: kInkDark,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           'All messages in this topic will be lost. This cannot be undone.',
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
+          style: GoogleFonts.inter(color: kInkMuted, fontSize: 13),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: kInkMuted),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4757)),
+              backgroundColor: kDangerInk,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -142,7 +160,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
       setState(() => _topics = snapshot);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text('Delete failed: ${e.message}'),
         ),
       );
@@ -152,26 +170,20 @@ class _TopicsScreenState extends State<TopicsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.group.name,
-                style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w700, fontSize: 17)),
-            Text(
-              _loading ? 'Loading…' : '${_topics.length} topics',
-              style:
-                  GoogleFonts.inter(fontSize: 11, color: Colors.white54),
-            ),
-          ],
+      backgroundColor: kCream,
+      appBar: CreamAppBar(
+        title: widget.group.name,
+        subtitle: _subtitle(),
+        leadingAvatar: CreamAvatar(
+          seed: widget.group.name,
+          initials: widget.group.name.isEmpty
+              ? '?'
+              : widget.group.name.substring(0, 1).toUpperCase(),
+          size: 36,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.people_alt_outlined),
+            icon: const Icon(Icons.people_alt_outlined, color: kAccentDeep),
             tooltip: 'Members',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -183,39 +195,48 @@ class _TopicsScreenState extends State<TopicsScreen> {
               ),
             ),
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: kAccentDeep),
+            onPressed: _load,
+            tooltip: 'Refresh',
+          ),
         ],
       ),
       floatingActionButton: _canManage
           ? FloatingActionButton.extended(
-              backgroundColor: const Color(0xFF667EEA),
+              backgroundColor: kAccent,
+              foregroundColor: Colors.white,
+              elevation: 2,
               onPressed: _createTopic,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('New topic',
-                  style: TextStyle(color: Colors.white)),
+              icon: const Icon(Icons.add),
+              label: Text(
+                'New topic',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+              ),
             )
           : null,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
-        child: SafeArea(child: _buildBody()),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
     );
+  }
+
+  String _subtitle() {
+    if (_loading) return 'Loading…';
+    final parts = <String>[];
+    if (_memberCount != null) {
+      parts.add(
+          '${_memberCount!} ${_memberCount == 1 ? 'member' : 'members'}');
+    }
+    parts.add('${_topics.length} ${_topics.length == 1 ? 'topic' : 'topics'}');
+    return parts.join(' · ');
   }
 
   Widget _buildBody() {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
@@ -223,21 +244,22 @@ class _TopicsScreenState extends State<TopicsScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(_error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 13)),
+              style: GoogleFonts.inter(color: kDangerInk, fontSize: 13)),
         ),
       );
     }
     if (_topics.isEmpty) {
       return Center(
-        child: Text('No topics yet',
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+        child: Text(
+          'No topics yet',
+          style: GoogleFonts.inter(color: kInkMuted, fontSize: 14),
+        ),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
       itemCount: _topics.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => kListDivider,
       itemBuilder: (ctx, i) {
         final t = _topics[i];
         return _TopicRow(
@@ -263,39 +285,18 @@ class _TopicRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glyph = topic.iconEmoji?.isNotEmpty == true ? topic.iconEmoji! : '#';
     return Material(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-                child: Text(
-                  topic.iconEmoji?.isNotEmpty == true
-                      ? topic.iconEmoji!
-                      : '#',
-                  style: GoogleFonts.inter(
-                    fontSize: topic.iconEmoji?.isNotEmpty == true ? 20 : 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              CreamSquareAvatar(glyph: glyph),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -304,28 +305,33 @@ class _TopicRow extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(topic.name,
-                              style: GoogleFonts.inter(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white)),
-                        ),
-                        if (topic.isDefault)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: Text('· default',
-                                style: GoogleFonts.inter(
-                                    fontSize: 11, color: Colors.white38)),
+                          child: Text(
+                            topic.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: kInkDark,
+                            ),
                           ),
+                        ),
+                        if (topic.isDefault) ...[
+                          const SizedBox(width: 8),
+                          const CreamTag(
+                            label: 'default',
+                            tone: CreamTagTone.muted,
+                          ),
+                        ],
                       ],
                     ),
                     if (topic.description?.isNotEmpty == true)
                       Padding(
-                        padding: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.only(top: 3),
                         child: Text(
                           topic.description!,
                           style: GoogleFonts.inter(
-                              fontSize: 12, color: Colors.white54),
+                              fontSize: 13, color: kInkMuted),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -336,12 +342,12 @@ class _TopicRow extends StatelessWidget {
               if (onDelete != null)
                 IconButton(
                   icon: const Icon(Icons.delete_outline,
-                      color: Color(0xFFFF6B7A)),
+                      color: kDangerInk),
                   tooltip: 'Delete topic',
                   onPressed: onDelete,
                 )
               else
-                const Icon(Icons.chevron_right, color: Colors.white38),
+                const Icon(Icons.chevron_right, color: kInkSubtle),
             ],
           ),
         ),
@@ -381,12 +387,47 @@ class _CreateTopicDialogState extends State<_CreateTopicDialog> {
     super.dispose();
   }
 
+  InputDecoration _fieldDecoration(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+      floatingLabelStyle:
+          GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+      hintText: hint,
+      hintStyle: GoogleFonts.inter(color: kInkSubtle.withValues(alpha: 0.6)),
+      filled: true,
+      fillColor: kCreamField,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kHairline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kAccent, width: 1.5),
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      counterStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 11),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1B3A),
-      title: Text('New topic',
-          style: GoogleFonts.outfit(color: Colors.white)),
+      backgroundColor: kCreamCard,
+      surfaceTintColor: kCreamCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: kHairline),
+      ),
+      title: Text(
+        'New topic',
+        style: GoogleFonts.playfairDisplay(
+          color: kInkDark,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -396,43 +437,49 @@ class _CreateTopicDialogState extends State<_CreateTopicDialog> {
               controller: _nameCtrl,
               autofocus: true,
               maxLength: 255,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white70),
-                hintText: 'e.g. homework',
-                hintStyle: TextStyle(color: Colors.white30),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Name', hint: 'e.g. homework'),
             ),
+            const SizedBox(height: 6),
             TextField(
               controller: _emojiCtrl,
               maxLength: 10,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Icon emoji (optional)',
-                labelStyle: TextStyle(color: Colors.white70),
-                hintText: '📝',
-                hintStyle: TextStyle(color: Colors.white30),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Icon emoji (optional)', hint: '📝'),
             ),
+            const SizedBox(height: 6),
             TextField(
               controller: _descCtrl,
               maxLines: 2,
               maxLength: 2000,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                labelStyle: TextStyle(color: Colors.white70),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Description (optional)'),
             ),
           ],
         ),
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(foregroundColor: kInkMuted),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
+        ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: kAccent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          ),
           onPressed: () {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) return;
@@ -449,7 +496,10 @@ class _CreateTopicDialogState extends State<_CreateTopicDialog> {
               ),
             );
           },
-          child: const Text('Create'),
+          child: Text(
+            'Create',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );

@@ -7,6 +7,7 @@ import '../../dm/data/dm_repository.dart';
 import '../data/groups_api.dart';
 import '../domain/group_models.dart';
 import 'topics_screen.dart';
+import '../../../core/ui/app_theme.dart';
 
 /// Lists groups for the current institution. Tap a row to open its chat.
 class GroupsScreen extends StatefulWidget {
@@ -97,49 +98,59 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Groups',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+      backgroundColor: kCream,
+      appBar: CreamAppBar(
+        title: 'Groups',
+        subtitle: (!_loading && _error == null)
+            ? '${_groups.length} ${_groups.length == 1 ? 'group' : 'groups'}'
+            : null,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: kAccentDeep),
+            onPressed: _load,
+            tooltip: 'Refresh',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF667EEA),
+        backgroundColor: kAccent,
+        foregroundColor: Colors.white,
+        elevation: 2,
         onPressed: _createGroupDialog,
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kCream, kCreamDeep],
           ),
         ),
         child: SafeArea(
+          top: false,
           child: RefreshIndicator(
-            color: const Color(0xFF667EEA),
+            color: kAccentDeep,
+            backgroundColor: kCream,
             onRefresh: _load,
             child: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white70))
+                    child: CircularProgressIndicator(color: kAccentDeep))
                 : _error != null
                     ? _ErrorState(text: _error!, onRetry: _load)
                     : _groups.isEmpty
                         ? const _EmptyState()
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+                            padding:
+                                const EdgeInsets.fromLTRB(0, 4, 0, 100),
                             itemCount: _groups.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
+                            separatorBuilder: (_, _) => const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: kHairline,
+                              indent: 84,
+                              endIndent: 16,
+                            ),
                             itemBuilder: (ctx, i) => _GroupRow(
                               group: _groups[i],
                               onTap: () => _openGroup(_groups[i]),
@@ -160,36 +171,32 @@ class _GroupRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final initial = group.name.isEmpty ? '?' : group.name[0].toUpperCase();
+    final avatarColor = avatarColorFor(group.name);
     return Material(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 52,
+                height: 52,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  ),
+                  color: avatarColor,
                 ),
                 child: Text(
                   initial,
-                  style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700),
+                  style: GoogleFonts.playfairDisplay(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -199,22 +206,26 @@ class _GroupRow extends StatelessWidget {
                   children: [
                     Text(
                       group.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      '${group.memberCount} members · ${group.mode}',
+                      '${group.memberCount} ${group.memberCount == 1 ? 'member' : 'members'} · ${group.mode}',
                       style: GoogleFonts.inter(
-                          fontSize: 12, color: Colors.white54),
+                        fontSize: 13,
+                        color: kInkMuted,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white38),
+              const Icon(Icons.chevron_right, color: kInkSubtle),
             ],
           ),
         ),
@@ -229,23 +240,23 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          const SizedBox(height: 120),
-          Icon(Icons.groups_outlined,
-              size: 56, color: Colors.white.withValues(alpha: 0.3)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 140),
+          const Icon(Icons.groups_outlined, size: 56, color: kInkSubtle),
+          const SizedBox(height: 14),
           Text(
             'No groups yet',
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70),
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: kInkDark,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             'Tap + to create one',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
+            style: GoogleFonts.inter(color: kInkMuted, fontSize: 14),
           ),
         ],
       );
@@ -263,16 +274,23 @@ class _ErrorState extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.error_outline,
-                  color: Color(0xFFFF6B7A), size: 48),
+                  color: Color(0xFFB94A33), size: 48),
               const SizedBox(height: 12),
               Text(
                 text,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
-                    color: const Color(0xFFFF6B7A), fontSize: 13),
+                    color: const Color(0xFFB94A33), fontSize: 13),
               ),
               const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: const Text('Retry')),
+              FilledButton(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  backgroundColor: kAccent,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
@@ -312,12 +330,47 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
     super.dispose();
   }
 
+  InputDecoration _fieldDecoration(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+      floatingLabelStyle:
+          GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+      hintText: hint,
+      hintStyle: GoogleFonts.inter(color: kInkSubtle.withValues(alpha: 0.6)),
+      filled: true,
+      fillColor: const Color(0xFFFFFBF4),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kHairline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: kAccent, width: 1.5),
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      counterStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 11),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1B3A),
-      title: Text('New group',
-          style: GoogleFonts.outfit(color: Colors.white)),
+      backgroundColor: const Color(0xFFFBF3E7),
+      surfaceTintColor: const Color(0xFFFBF3E7),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: kHairline),
+      ),
+      title: Text(
+        'New group',
+        style: GoogleFonts.playfairDisplay(
+          color: kInkDark,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -326,34 +379,31 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
             TextField(
               controller: _nameCtrl,
               autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white70),
-                hintText: 'e.g. Staff Room',
-                hintStyle: TextStyle(color: Colors.white30),
-              ),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Name', hint: 'e.g. Staff Room'),
               maxLength: 255,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             TextField(
               controller: _descCtrl,
-              style: const TextStyle(color: Colors.white),
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
               maxLines: 2,
               maxLength: 2000,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                labelStyle: TextStyle(color: Colors.white70),
-                hintStyle: TextStyle(color: Colors.white30),
-              ),
+              decoration: _fieldDecoration('Description (optional)'),
             ),
             const SizedBox(height: 12),
-            Text('Type',
-                style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70)),
-            const SizedBox(height: 6),
+            Text(
+              'Type',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: kInkMuted,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
             _ModeTile(
               value: 'simple',
               groupValue: _mode,
@@ -368,10 +418,10 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
               subtitle: 'Channels inside the group (like Slack)',
               onTap: () => setState(() => _mode = 'topics'),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               'You cannot change this later.',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.white38),
+              style: GoogleFonts.inter(fontSize: 11, color: kInkSubtle),
             ),
           ],
         ),
@@ -379,9 +429,20 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          style: TextButton.styleFrom(foregroundColor: kInkMuted),
+          child: Text('Cancel',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         ),
         FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: kAccent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          ),
           onPressed: () {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) return;
@@ -396,7 +457,8 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
               ),
             );
           },
-          child: const Text('Create'),
+          child: Text('Create',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -422,21 +484,17 @@ class _ModeTile extends StatelessWidget {
     final selected = value == groupValue;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.all(10),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF667EEA)
-                : Colors.white.withValues(alpha: 0.12),
+            color: selected ? kAccent : kHairline,
             width: selected ? 1.5 : 1,
           ),
-          color: selected
-              ? const Color(0xFF667EEA).withValues(alpha: 0.12)
-              : null,
+          color: selected ? kAccent.withValues(alpha: 0.08) : null,
         ),
         child: Row(
           children: [
@@ -444,22 +502,30 @@ class _ModeTile extends StatelessWidget {
               selected
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
-              color: selected ? const Color(0xFF8A9CF5) : Colors.white38,
-              size: 18,
+              color: selected ? kAccentDeep : kInkSubtle,
+              size: 20,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
-                  Text(subtitle,
-                      style: GoogleFonts.inter(
-                          fontSize: 11, color: Colors.white54)),
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: kInkDark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: kInkMuted,
+                    ),
+                  ),
                 ],
               ),
             ),

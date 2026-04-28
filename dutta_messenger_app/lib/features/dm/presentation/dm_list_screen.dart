@@ -8,6 +8,7 @@ import '../../users/data/users_api.dart';
 import '../../users/domain/user_models.dart';
 import '../../users/presentation/users_screen.dart';
 import '../data/dm_repository.dart';
+import '../../../core/ui/app_theme.dart';
 
 /// Lists the caller's direct-message conversations. Each row shows the
 /// *other* party — we resolve their profile via /users/{id}. Tapping a row
@@ -98,38 +99,39 @@ class _DmListScreenState extends State<DmListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Direct messages',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+      backgroundColor: kCream,
+      appBar: CreamAppBar(
+        title: 'Direct messages',
+        subtitle: (!_loading && _error == null)
+            ? '${_entries.length} ${_entries.length == 1 ? 'direct message' : 'direct messages'}'
+            : null,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: kAccentDeep),
+            onPressed: _load,
+            tooltip: 'Refresh',
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF667EEA),
-        icon: const Icon(Icons.edit, color: Colors.white),
-        label: const Text('New message',
-            style: TextStyle(color: Colors.white)),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: kAccent,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        tooltip: 'New message',
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => UsersScreen(me: widget.me)),
         ),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kCream, kCreamDeep],
           ),
         ),
-        child: SafeArea(child: _buildBody()),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
     );
   }
@@ -137,7 +139,7 @@ class _DmListScreenState extends State<DmListScreen> {
   Widget _buildBody() {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
@@ -146,7 +148,7 @@ class _DmListScreenState extends State<DmListScreen> {
           child: Text(_error!,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 13)),
+                  color: const Color(0xFFB94A33), fontSize: 13)),
         ),
       );
     }
@@ -157,20 +159,22 @@ class _DmListScreenState extends State<DmListScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.chat_bubble_outline,
-                  size: 48, color: Colors.white.withValues(alpha: 0.3)),
-              const SizedBox(height: 12),
-              Text('No direct messages yet',
-                  style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70)),
+              const Icon(Icons.chat_bubble_outline,
+                  size: 56, color: kInkSubtle),
+              const SizedBox(height: 14),
+              Text(
+                'No direct messages yet',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: kInkDark,
+                ),
+              ),
               const SizedBox(height: 6),
               Text(
-                "Tap the button below to find someone to message.",
+                'Tap the button below to find someone to message.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                    fontSize: 13, color: Colors.white54),
+                style: GoogleFonts.inter(fontSize: 14, color: kInkMuted),
               ),
             ],
           ),
@@ -178,12 +182,19 @@ class _DmListScreenState extends State<DmListScreen> {
       );
     }
     return RefreshIndicator(
-      color: const Color(0xFF667EEA),
+      color: kAccentDeep,
+      backgroundColor: kCream,
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
         itemCount: _entries.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const Divider(
+          height: 1,
+          thickness: 1,
+          color: kHairline,
+          indent: 84,
+          endIndent: 16,
+        ),
         itemBuilder: (ctx, i) {
           final entry = _entries[i];
           final isOnline = entry.other != null &&
@@ -220,38 +231,34 @@ class _DmRow extends StatelessWidget {
     final name = entry.other?.fullName ?? 'Unknown user';
     final sub = entry.other?.email ?? entry.group.name;
     final initials = entry.other?.initials ?? '?';
+    final avatarColor = avatarColorFor(name);
     return Material(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Stack(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 52,
+                    height: 52,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
+                      color: avatarColor,
                     ),
                     child: Text(
                       initials,
-                      style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700),
+                      style: GoogleFonts.playfairDisplay(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   if (isOnline)
@@ -259,13 +266,12 @@ class _DmRow extends StatelessWidget {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        width: 12,
-                        height: 12,
+                        width: 14,
+                        height: 14,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF2ED573),
-                          border: Border.all(
-                              color: const Color(0xFF0F0C29), width: 2),
+                          color: kOnlineGreen,
+                          border: Border.all(color: kCream, width: 2.5),
                         ),
                       ),
                     ),
@@ -276,21 +282,30 @@ class _DmRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
-                        style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(sub,
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: Colors.white54),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sub,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: kInkMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white38),
+              const Icon(Icons.chevron_right, color: kInkSubtle),
             ],
           ),
         ),

@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../../services/chat_service.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../groups/presentation/group_members_screen.dart';
@@ -201,9 +202,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final canEdit = !parsed.hasAttachment;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E1B3A),
+      backgroundColor: kCreamCard,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -211,6 +212,15 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(top: 6, bottom: 8),
+                decoration: BoxDecoration(
+                  color: kHairline,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               if (canEdit)
                 _ActionRow(
                   icon: Icons.edit_outlined,
@@ -266,21 +276,36 @@ class _ChatScreenState extends State<ChatScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1B3A),
-        title: Text('Delete message?',
-            style: GoogleFonts.outfit(color: Colors.white)),
+        backgroundColor: kCreamCard,
+        surfaceTintColor: kCreamCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: kHairline),
+        ),
+        title: Text(
+          'Delete message?',
+          style: GoogleFonts.playfairDisplay(
+            color: kInkDark,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           'The message will be marked as deleted for everyone in this chat.',
-          style: GoogleFonts.inter(fontSize: 13, color: Colors.white70),
+          style: GoogleFonts.inter(fontSize: 13, color: kInkMuted),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: kInkMuted),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4757)),
+              backgroundColor: kDangerInk,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -330,59 +355,20 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_upload != null || _conversation == null) return;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1E1B3A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _AttachTile(
-                icon: Icons.photo_library_outlined,
-                label: 'Photo library',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-              _AttachTile(
-                icon: Icons.photo_camera_outlined,
-                label: 'Take a photo',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              _AttachTile(
-                icon: Icons.video_library_outlined,
-                label: 'Video library',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickVideo(ImageSource.gallery);
-                },
-              ),
-              _AttachTile(
-                icon: Icons.videocam_outlined,
-                label: 'Record a video',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickVideo(ImageSource.camera);
-                },
-              ),
-              _AttachTile(
-                icon: Icons.insert_drive_file_outlined,
-                label: 'File (PDF, DOC, …)',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickFile();
-                },
-              ),
-            ],
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AttachDock(
+        onPickImage: (src) {
+          Navigator.pop(context);
+          _pickImage(src);
+        },
+        onPickVideo: (src) {
+          Navigator.pop(context);
+          _pickVideo(src);
+        },
+        onPickFile: () {
+          Navigator.pop(context);
+          _pickFile();
+        },
       ),
     );
   }
@@ -511,18 +497,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final initials = _initialsFor(widget.groupName);
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          widget.groupName,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+      backgroundColor: kCream,
+      appBar: CreamAppBar(
+        title: widget.groupName,
+        leadingAvatar: CreamAvatar(
+          seed: widget.groupName,
+          initials: initials,
+          size: 36,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.people_alt_outlined),
+            icon: const Icon(Icons.people_alt_outlined, color: kAccentDeep),
             tooltip: 'Members',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -537,18 +524,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
         child: SafeArea(
+          top: false,
           child: Column(
             children: [
               if (_error != null)
@@ -561,7 +539,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Expanded(
                 child: _loading
                     ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white70))
+                        child: CircularProgressIndicator(color: kAccentDeep))
                     : _messages.isEmpty
                         ? _EmptyState()
                         : ListView.builder(
@@ -589,6 +567,14 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+  String _initialsFor(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
+  }
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -605,10 +591,11 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isMine
-        ? const Color(0xFF667EEA)
-        : Colors.white.withValues(alpha: 0.09);
-    final textColor = isMine ? Colors.white : Colors.white.withValues(alpha: 0.9);
+    final bubbleColor = isMine ? kAccent : Colors.white;
+    final textColor = isMine ? Colors.white : kInkDark;
+    final mutedColor = isMine
+        ? Colors.white.withValues(alpha: 0.85)
+        : kInkMuted;
     final align = isMine ? Alignment.centerRight : Alignment.centerLeft;
 
     final parsed = msg.isDeleted
@@ -620,78 +607,103 @@ class _MessageBubble extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.76,
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
         ),
         child: GestureDetector(
           onLongPress: isMine && !msg.isDeleted
               ? () => onLongPress(msg)
               : null,
           child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: Radius.circular(isMine ? 16 : 4),
-              bottomRight: Radius.circular(isMine ? 4 : 16),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: Radius.circular(isMine ? 18 : 4),
+                bottomRight: Radius.circular(isMine ? 4 : 18),
+              ),
+              border: isMine
+                  ? null
+                  : Border.all(color: kHairline, width: 0.6),
+              boxShadow: isMine
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: const Color(0xFF6B4A22).withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isMine && msg.senderName != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(
-                    msg.senderName!,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white70,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isMine && msg.senderName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      msg.senderName!,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: kAccentDeep,
+                      ),
                     ),
                   ),
+                if (msg.isDeleted)
+                  Text(
+                    '(deleted)',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: mutedColor,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                else ...[
+                  if (parsed.hasAttachment)
+                    _AttachmentView(
+                      attachment: parsed.attachment!,
+                      mediaApi: mediaApi,
+                      isMine: isMine,
+                    ),
+                  if (parsed.hasAttachment && parsed.hasText)
+                    const SizedBox(height: 6),
+                  if (parsed.hasText || !parsed.hasAttachment)
+                    _LinkifiedText(
+                      text: parsed.text.isEmpty ? msg.content : parsed.text,
+                      textColor: textColor,
+                      isMine: isMine,
+                    ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${_formatTime(msg.createdAt)}${msg.isEdited ? ' · edited' : ''}',
+                        style: GoogleFonts.inter(
+                          fontSize: 10.5,
+                          color: mutedColor,
+                        ),
+                      ),
+                      if (isMine && !msg.isDeleted) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.done_all,
+                          size: 14,
+                          color: mutedColor,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              if (msg.isDeleted)
-                Text(
-                  '(deleted)',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: textColor,
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              else ...[
-                if (parsed.hasAttachment)
-                  _AttachmentView(
-                    attachment: parsed.attachment!,
-                    mediaApi: mediaApi,
-                    textColor: textColor,
-                  ),
-                if (parsed.hasAttachment && parsed.hasText)
-                  const SizedBox(height: 6),
-                if (parsed.hasText || !parsed.hasAttachment)
-                  _LinkifiedText(
-                    text: parsed.text.isEmpty ? msg.content : parsed.text,
-                    textColor: textColor,
-                    isMine: isMine,
-                  ),
               ],
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '${_formatTime(msg.createdAt)}${msg.isEdited ? ' · edited' : ''}',
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    color: (isMine ? Colors.white : Colors.white54)
-                        .withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -713,11 +725,11 @@ class _AttachmentView extends StatefulWidget {
   const _AttachmentView({
     required this.attachment,
     required this.mediaApi,
-    required this.textColor,
+    required this.isMine,
   });
   final ChatAttachment attachment;
   final MediaApi mediaApi;
-  final Color textColor;
+  final bool isMine;
 
   @override
   State<_AttachmentView> createState() => _AttachmentViewState();
@@ -785,7 +797,7 @@ class _AttachmentViewState extends State<_AttachmentView> {
         width: 220,
         height: 140,
         child: Center(
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+          child: CircularProgressIndicator(strokeWidth: 2, color: kAccentDeep),
         ),
       );
     }
@@ -793,7 +805,7 @@ class _AttachmentViewState extends State<_AttachmentView> {
       return _buildFileRow();
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: GestureDetector(
         onTap: _openExternally,
         child: Image.network(
@@ -808,7 +820,7 @@ class _AttachmentViewState extends State<_AttachmentView> {
                   height: 140,
                   child: Center(
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white70),
+                        strokeWidth: 2, color: kAccentDeep),
                   ),
                 ),
         ),
@@ -818,28 +830,41 @@ class _AttachmentViewState extends State<_AttachmentView> {
 
   Widget _buildFileRow() {
     final att = widget.attachment;
+    final isMine = widget.isMine;
+    final fg = isMine ? Colors.white : kInkDark;
+    final fgMuted = isMine ? Colors.white.withValues(alpha: 0.85) : kInkMuted;
+    final chipBg = isMine
+        ? Colors.white.withValues(alpha: 0.18)
+        : kAccent.withValues(alpha: 0.12);
+    final iconColor = isMine ? Colors.white : kAccentDeep;
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       onTap: _openExternally,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          color: isMine
+              ? Colors.white.withValues(alpha: 0.12)
+              : kCreamField,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isMine
+                ? Colors.white.withValues(alpha: 0.25)
+                : kHairline,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.12),
+                color: chipBg,
               ),
-              child: Icon(_iconFor(att), color: widget.textColor, size: 18),
+              child: Icon(_iconFor(att), color: iconColor, size: 18),
             ),
             const SizedBox(width: 10),
             Flexible(
@@ -851,8 +876,8 @@ class _AttachmentViewState extends State<_AttachmentView> {
                     att.fileName,
                     style: GoogleFonts.inter(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: widget.textColor,
+                      fontWeight: FontWeight.w700,
+                      color: fg,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -861,7 +886,7 @@ class _AttachmentViewState extends State<_AttachmentView> {
                     '${_formatBytes(att.fileSize)} · tap to open',
                     style: GoogleFonts.inter(
                       fontSize: 11,
-                      color: widget.textColor.withValues(alpha: 0.75),
+                      color: fgMuted,
                     ),
                   ),
                   if (_error != null)
@@ -871,7 +896,7 @@ class _AttachmentViewState extends State<_AttachmentView> {
                         _error!,
                         style: GoogleFonts.inter(
                           fontSize: 10,
-                          color: const Color(0xFFFF6B7A),
+                          color: kDangerInk,
                         ),
                       ),
                     ),
@@ -918,8 +943,12 @@ class _LinkifiedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bodyStyle = GoogleFonts.inter(fontSize: 14, color: textColor);
-    final linkColor = isMine ? Colors.white : const Color(0xFFB6C2FF);
+    final bodyStyle = GoogleFonts.inter(
+      fontSize: 14.5,
+      color: textColor,
+      height: 1.35,
+    );
+    final linkColor = isMine ? Colors.white : kAccentDeep;
     final linkStyle = bodyStyle.copyWith(
       color: linkColor,
       decoration: TextDecoration.underline,
@@ -958,69 +987,94 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 12, 12),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+      decoration: const BoxDecoration(
+        color: kCream,
+        border: Border(top: BorderSide(color: kHairline)),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: enabled ? onAttach : null,
-            tooltip: 'Attach a file or photo',
-            icon: Icon(
-              Icons.attach_file_rounded,
-              color: enabled ? Colors.white70 : Colors.white24,
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              maxLines: 3,
-              minLines: 1,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Message',
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.07),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: kCreamField,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: kHairline),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: enabled ? onAttach : null,
+                      tooltip: 'Attach a file or photo',
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        Icons.attach_file_rounded,
+                        color: enabled ? kAccentDeep : kInkSubtle,
+                      ),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        enabled: enabled,
+                        maxLines: 5,
+                        minLines: 1,
+                        cursorColor: kAccentDeep,
+                        textInputAction: TextInputAction.newline,
+                        style: GoogleFonts.inter(
+                          color: kInkDark,
+                          fontSize: 14.5,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Write a message',
+                          hintStyle: GoogleFonts.inter(
+                            color: kInkSubtle,
+                            fontSize: 14.5,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isCollapsed: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Material(
-            color: const Color(0xFF667EEA),
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: enabled ? onSend : null,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: sending
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.4,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Material(
+              color: enabled ? kAccent : kAccent.withValues(alpha: 0.5),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: enabled ? onSend : null,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: sending
+                      ? const Padding(
+                          padding: EdgeInsets.all(13),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.4,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, color: Colors.white),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1032,12 +1086,12 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline,
-                size: 48, color: Colors.white.withValues(alpha: 0.35)),
-            const SizedBox(height: 12),
+            const Icon(Icons.chat_bubble_outline,
+                size: 56, color: kInkSubtle),
+            const SizedBox(height: 14),
             Text(
               'No messages yet — say hello.',
-              style: GoogleFonts.inter(color: Colors.white54, fontSize: 14),
+              style: GoogleFonts.inter(color: kInkMuted, fontSize: 14),
             ),
           ],
         ),
@@ -1056,23 +1110,19 @@ class _ErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: const Color(0xFFFF4757).withValues(alpha: 0.15),
-        border: Border.all(
-            color: const Color(0xFFFF4757).withValues(alpha: 0.35)),
+        color: kDangerBg.withValues(alpha: 0.10),
+        border: Border.all(color: kDangerBg.withValues(alpha: 0.40)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline,
-              color: Color(0xFFFF6B7A), size: 18),
+          const Icon(Icons.error_outline, color: kDangerInk, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: GoogleFonts.inter(
-                    color: const Color(0xFFFF6B7A), fontSize: 12)),
+                style: GoogleFonts.inter(color: kDangerInk, fontSize: 12)),
           ),
           IconButton(
-              icon:
-                  const Icon(Icons.close, size: 16, color: Color(0xFFFF6B7A)),
+              icon: const Icon(Icons.close, size: 16, color: kDangerInk),
               onPressed: onDismiss),
         ],
       ),
@@ -1104,16 +1154,15 @@ class _UploadBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        borderRadius: BorderRadius.circular(12),
+        color: kCreamCard,
+        border: Border.all(color: kHairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            const Icon(Icons.cloud_upload,
-                color: Color(0xFF8A9CF5), size: 18),
+            const Icon(Icons.cloud_upload, color: kAccentDeep, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1122,15 +1171,15 @@ class _UploadBanner extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  color: kInkDark,
                 ),
               ),
             ),
             if (state.fraction != null)
               Text('${(state.fraction! * 100).round()}%',
                   style: GoogleFonts.inter(
-                      fontSize: 11, color: Colors.white70)),
+                      fontSize: 11, color: kInkMuted)),
           ]),
           const SizedBox(height: 8),
           ClipRRect(
@@ -1138,9 +1187,8 @@ class _UploadBanner extends StatelessWidget {
             child: LinearProgressIndicator(
               value: state.fraction,
               minHeight: 4,
-              backgroundColor: Colors.white.withValues(alpha: 0.12),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Color(0xFF8A9CF5)),
+              backgroundColor: kHairline,
+              valueColor: const AlwaysStoppedAnimation<Color>(kAccent),
             ),
           ),
         ],
@@ -1160,28 +1208,25 @@ class _EditingBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: const Color(0xFF667EEA).withValues(alpha: 0.18),
-        border: Border.all(
-            color: const Color(0xFF667EEA).withValues(alpha: 0.45)),
+        color: kAccent.withValues(alpha: 0.12),
+        border: Border.all(color: kAccent.withValues(alpha: 0.45)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.edit_outlined,
-              color: Color(0xFF8A9CF5), size: 18),
+          const Icon(Icons.edit_outlined, color: kAccentDeep, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Editing message — send to save, or cancel.',
               style: GoogleFonts.inter(
                 fontSize: 12,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
+                color: kInkDark,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close,
-                size: 16, color: Color(0xFF8A9CF5)),
+            icon: const Icon(Icons.close, size: 16, color: kAccentDeep),
             onPressed: onCancel,
             tooltip: 'Cancel edit',
           ),
@@ -1206,7 +1251,7 @@ class _ActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? const Color(0xFFFF6B7A) : Colors.white;
+    final color = destructive ? kDangerInk : kInkDark;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -1230,8 +1275,95 @@ class _ActionRow extends StatelessWidget {
   }
 }
 
-class _AttachTile extends StatelessWidget {
-  const _AttachTile({
+/// Dark slim bottom sheet pinned along the screen edge with the 5 attach
+/// options laid out as a horizontal dock. Reuses [_AttachDockItem] for
+/// each tab so all five share the same icon-circle + label treatment.
+class _AttachDock extends StatelessWidget {
+  const _AttachDock({
+    required this.onPickImage,
+    required this.onPickVideo,
+    required this.onPickFile,
+  });
+  final ValueChanged<ImageSource> onPickImage;
+  final ValueChanged<ImageSource> onPickVideo;
+  final VoidCallback onPickFile;
+
+  static const _surface = Color(0xFF2A2520);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.30),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.30),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _AttachDockItem(
+                      icon: Icons.photo_library_outlined,
+                      label: 'Gallery',
+                      onTap: () => onPickImage(ImageSource.gallery),
+                    ),
+                    _AttachDockItem(
+                      icon: Icons.photo_camera_outlined,
+                      label: 'Camera',
+                      onTap: () => onPickImage(ImageSource.camera),
+                    ),
+                    _AttachDockItem(
+                      icon: Icons.video_library_outlined,
+                      label: 'Video',
+                      onTap: () => onPickVideo(ImageSource.gallery),
+                    ),
+                    _AttachDockItem(
+                      icon: Icons.videocam_outlined,
+                      label: 'Record',
+                      onTap: () => onPickVideo(ImageSource.camera),
+                    ),
+                    _AttachDockItem(
+                      icon: Icons.insert_drive_file_outlined,
+                      label: 'File',
+                      onTap: onPickFile,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One column-shaped tab inside [_AttachDock]: round icon chip + caption.
+class _AttachDockItem extends StatelessWidget {
+  const _AttachDockItem({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -1242,21 +1374,38 @@ class _AttachTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF8A9CF5)),
-            const SizedBox(width: 14),
-            Text(label,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: kAccent.withValues(alpha: 0.18),
+                ),
+                child: Icon(icon, color: kAccent, size: 20),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white)),
-          ],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

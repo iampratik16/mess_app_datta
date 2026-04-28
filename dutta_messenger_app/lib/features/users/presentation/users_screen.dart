@@ -7,6 +7,7 @@ import '../../chat/presentation/chat_screen.dart';
 import '../../dm/data/dm_repository.dart';
 import '../data/users_api.dart';
 import '../domain/user_models.dart';
+import '../../../core/ui/app_theme.dart';
 
 /// Directory of users in the current institution. Search-as-you-type
 /// hits /api/v1/users/search; clears back to a gentle empty state when
@@ -124,26 +125,18 @@ class _UsersScreenState extends State<UsersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('People',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'People'),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kCream, kCreamDeep],
           ),
         ),
         child: SafeArea(
+          top: false,
           child: Column(
             children: [
               _buildSearchBar(),
@@ -161,18 +154,23 @@ class _UsersScreenState extends State<UsersScreen> {
       child: TextField(
         controller: _searchCtrl,
         onChanged: _onQueryChanged,
-        style: const TextStyle(color: Colors.white),
+        cursorColor: kAccentDeep,
+        style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
         decoration: InputDecoration(
           hintText: 'Search name or email',
-          hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
+          hintStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: kInkSubtle),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.07),
+          fillColor: kCreamField,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          border: OutlineInputBorder(
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: kHairline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: const BorderSide(color: kAccent, width: 1.5),
           ),
         ),
       ),
@@ -182,7 +180,7 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget _buildList() {
     if (_loading && _results.isEmpty) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
@@ -191,7 +189,7 @@ class _UsersScreenState extends State<UsersScreen> {
           child: Text(_error!,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 13)),
+                  color: const Color(0xFFB94A33), fontSize: 13)),
         ),
       );
     }
@@ -201,14 +199,20 @@ class _UsersScreenState extends State<UsersScreen> {
           _searchCtrl.text.trim().isEmpty
               ? 'Type a name or email to search'
               : 'No users match',
-          style: GoogleFonts.inter(color: Colors.white54, fontSize: 13),
+          style: GoogleFonts.inter(color: kInkMuted, fontSize: 14),
         ),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
       itemCount: _results.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const Divider(
+        height: 1,
+        thickness: 1,
+        color: kHairline,
+        indent: 84,
+        endIndent: 16,
+      ),
       itemBuilder: (ctx, i) {
         final u = _results[i];
         final isMe = u.id == widget.me.id;
@@ -234,101 +238,114 @@ class _UserTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = user.fullName ?? '(no name)';
+    final avatarColor = avatarColorFor(displayName);
     return Material(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-        children: [
-          Stack(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                  ),
-                ),
-                child: Text(
-                  user.initials,
-                  style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700),
-                ),
-              ),
-              if (user.isOnline)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
+              Stack(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF2ED573),
-                      border: Border.all(
-                          color: const Color(0xFF0F0C29), width: 2),
+                      color: avatarColor,
+                    ),
+                    child: Text(
+                      user.initials,
+                      style: GoogleFonts.playfairDisplay(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName ?? '(no name)',
-                  style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  user.email ?? user.id,
-                  style: GoogleFonts.inter(
-                      fontSize: 12, color: Colors.white54),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          if (isMe)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: Colors.white.withValues(alpha: 0.08),
+                  if (user.isOnline)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: kOnlineGreen,
+                          border: Border.all(color: kCream, width: 2.5),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              child: Text(
-                'YOU',
-                style: GoogleFonts.inter(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white70,
-                  letterSpacing: 0.8,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      user.email ?? user.id,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: kInkMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-            )
-          else
-            const Icon(Icons.chat_bubble_outline,
-                color: Colors.white54, size: 20),
+              if (isMe)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: kAccent.withValues(alpha: 0.15),
+                    border: Border.all(
+                      color: kAccent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    'YOU',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: kAccentDeep,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: kAccent.withValues(alpha: 0.12),
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline,
+                      color: kAccentDeep, size: 18),
+                ),
             ],
           ),
         ),

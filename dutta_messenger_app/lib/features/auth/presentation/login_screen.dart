@@ -6,6 +6,7 @@ import '../data/auth_repository.dart';
 import '../../../core/errors/api_error.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/push_token_service.dart';
 import '../../home/presentation/home_screen.dart';
@@ -98,37 +99,39 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kCream,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kCream, kCreamDeep],
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: FadeTransition(
                 opacity: _fadeAnim,
                 child: SlideTransition(
                   position: _slideAnim,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildLogo(),
-                      const SizedBox(height: 40),
-                      _buildLoginCard(),
-                      const SizedBox(height: 14),
-                      _buildAlternateActions(),
-                      const SizedBox(height: 16),
-                      _buildServerInfo(),
-                    ],
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 24),
+                        _buildLogo(),
+                        const SizedBox(height: 32),
+                        _buildLoginCard(),
+                        const SizedBox(height: 18),
+                        _buildAlternateActions(),
+                        const SizedBox(height: 14),
+                        _buildServerInfo(),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -143,40 +146,48 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       children: [
         Container(
-          width: 72,
-          height: 72,
+          width: 108,
+          height: 108,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-            ),
+            shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF667EEA).withValues(alpha: 0.4),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+                color: kAccent.withValues(alpha: 0.18),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: const Icon(Icons.message_rounded, color: Colors.white, size: 36),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/images/datta_uni_logo.jpg',
+              fit: BoxFit.cover,
+            ),
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 22),
         Text(
           'DuttaMessenger',
-          style: GoogleFonts.outfit(
-            fontSize: 28,
+          style: GoogleFonts.playfairDisplay(
+            fontSize: 34,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: kInkDark,
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           'Private Institutional Messaging',
+          textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 14,
-            color: Colors.white54,
-            letterSpacing: 0.3,
+            color: kInkMuted,
+            letterSpacing: 0.2,
           ),
         ),
       ],
@@ -185,138 +196,143 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildLoginCard() {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 420),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(22),
+        color: kCreamCard,
+        border: Border.all(color: kHairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 40,
-            offset: const Offset(0, 16),
+            color: const Color(0xFF6B4A22).withValues(alpha: 0.06),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Sign In',
-                  style: GoogleFonts.outfit(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sign In',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: kInkDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Enter your credentials to access the platform',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: kInkMuted,
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // Email field
+              _buildTextField(
+                controller: _emailController,
+                label: 'Email',
+                icon: Icons.email_outlined,
+                validator: (v) =>
+                    v == null || !v.contains('@') ? 'Valid email required' : null,
+              ),
+              const SizedBox(height: 14),
+
+              // Password field
+              _buildTextField(
+                controller: _passwordController,
+                label: 'Password',
+                icon: Icons.lock_outline,
+                obscure: _obscurePassword,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: kInkSubtle,
+                    size: 20,
                   ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Enter your credentials to access the platform',
-                  style: GoogleFonts.inter(fontSize: 13, color: Colors.white54),
-                ),
-                const SizedBox(height: 28),
+                validator: (v) =>
+                    v == null || v.length < 6 ? 'Min 6 characters' : null,
+              ),
 
-                // Email field
-                _buildTextField(
-                  controller: _emailController,
-                  label: 'Email',
-                  icon: Icons.email_outlined,
-                  validator: (v) =>
-                      v == null || !v.contains('@') ? 'Valid email required' : null,
-                ),
-                const SizedBox(height: 16),
-
-                // Password field
-                _buildTextField(
-                  controller: _passwordController,
-                  label: 'Password',
-                  icon: Icons.lock_outline,
-                  obscure: _obscurePassword,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white38,
-                      size: 20,
+              // Error message
+              if (_errorMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 14),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFE07260).withValues(alpha: 0.10),
+                    border: Border.all(
+                      color: const Color(0xFFE07260).withValues(alpha: 0.35),
                     ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  validator: (v) =>
-                      v == null || v.length < 6 ? 'Min 6 characters' : null,
-                ),
-                const SizedBox(height: 8),
-
-                // Error message
-                if (_errorMessage != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: const Color(0xFFFF4757).withValues(alpha: 0.15),
-                      border: Border.all(
-                        color: const Color(0xFFFF4757).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline,
-                            color: Color(0xFFFF6B7A), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: const Color(0xFFFF6B7A),
-                            ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Color(0xFFB94A33), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFFB94A33),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-
-                const SizedBox(height: 24),
-
-                // Login button
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF667EEA),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
                       ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            'Sign In',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+
+              const SizedBox(height: 22),
+
+              // Login button
+              SizedBox(
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    disabledBackgroundColor: kAccent.withValues(alpha: 0.55),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                    shadowColor: kAccentDeep,
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.all(
+                      kAccentDeep.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'Sign In',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -335,91 +351,103 @@ class _LoginScreenState extends State<LoginScreen>
       controller: controller,
       obscureText: obscure,
       validator: validator,
-      style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
+      cursorColor: kAccentDeep,
+      style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 13),
-        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+        labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+        floatingLabelStyle:
+            GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+        prefixIcon: Icon(icon, color: kInkSubtle, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
+        fillColor: kCreamField,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: const BorderSide(color: kHairline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: const BorderSide(color: kHairline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF667EEA), width: 1.5),
+          borderSide: const BorderSide(color: kAccent, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFFF4757)),
+          borderSide: const BorderSide(color: Color(0xFFB94A33)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFB94A33), width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
 
   Widget _buildAlternateActions() {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 420),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextButton.icon(
-            icon: const Icon(Icons.mark_email_read_outlined,
-                size: 18, color: Colors.white70),
-            label: Text('Have an invite?',
-                style: GoogleFonts.inter(
-                    color: Colors.white70, fontSize: 12)),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => RegisterWithInviteScreen(
-                  prefilledEmail: _emailController.text.trim().isEmpty
-                      ? null
-                      : _emailController.text.trim(),
-                ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextButton.icon(
+          icon: const Icon(Icons.mark_email_read_outlined,
+              size: 18, color: kAccentDeep),
+          label: Text(
+            'Have an invite?',
+            style: GoogleFonts.inter(
+              color: kAccentDeep,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RegisterWithInviteScreen(
+                prefilledEmail: _emailController.text.trim().isEmpty
+                    ? null
+                    : _emailController.text.trim(),
               ),
             ),
           ),
-          Container(
-            width: 1,
-            height: 14,
-            color: Colors.white.withValues(alpha: 0.2),
-          ),
-          TextButton.icon(
-            icon: const Icon(Icons.business_outlined,
-                size: 18, color: Colors.white70),
-            label: Text('Create institution',
-                style: GoogleFonts.inter(
-                    color: Colors.white70, fontSize: 12)),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const CreateInstitutionScreen()),
+        ),
+        Container(
+          width: 1,
+          height: 14,
+          color: kHairline,
+        ),
+        TextButton.icon(
+          icon: const Icon(Icons.business_outlined,
+              size: 18, color: kAccentDeep),
+          label: Text(
+            'Create institution',
+            style: GoogleFonts.inter(
+              color: kAccentDeep,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      ),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (_) => const CreateInstitutionScreen()),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildServerInfo() {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 420),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Text(
         'Connected to: ${AppConfig.apiBaseUrl}',
         textAlign: TextAlign.center,
         style: GoogleFonts.jetBrainsMono(
           fontSize: 10,
-          color: Colors.white24,
+          color: kInkSubtle.withValues(alpha: 0.7),
         ),
       ),
     );
   }
 }
-
