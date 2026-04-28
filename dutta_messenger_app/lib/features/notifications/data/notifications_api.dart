@@ -33,18 +33,46 @@ class NotificationsApi {
     }
   }
 
-  /// POST /notifications/tokens — register a device FCM token.
-  Future<void> registerFcmToken({
+  /// POST /notifications/tokens — register (or reactivate) a device FCM
+  /// token. Returns the server-assigned token row id so the caller can
+  /// later DELETE it via [revokeFcmToken].
+  ///
+  /// Backend accepts `device_type` ∈ ios|android|web (NOT `platform`).
+  Future<RegisterFcmTokenResult> registerFcmToken({
     required String token,
-    String platform = 'ios',
+    String? deviceName,
+    String? deviceType,
   }) async {
     try {
-      await _dio.post('/notifications/tokens', data: {
+      final r = await _dio.post('/notifications/tokens', data: {
         'token': token,
-        'platform': platform,
+        if (deviceName != null) 'device_name': deviceName,
+        if (deviceType != null) 'device_type': deviceType,
       });
+      final data = r.data['data'] as Map<String, dynamic>?;
+      final tokenObj = data?['token'] as Map<String, dynamic>?;
+      return RegisterFcmTokenResult(
+        tokenId: tokenObj?['id']?.toString() ?? '',
+        reused: (data?['reused'] as bool?) ?? false,
+      );
     } on DioException catch (e) {
       throw ApiError.fromDioException(e);
     }
   }
+
+  /// DELETE /notifications/tokens/{id} — soft-deactivate a device token.
+  Future<void> revokeFcmToken(String tokenId) async {
+    try {
+      await _dio.delete('/notifications/tokens/$tokenId');
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+}
+
+/// Result of a token registration.
+class RegisterFcmTokenResult {
+  const RegisterFcmTokenResult({required this.tokenId, required this.reused});
+  final String tokenId;
+  final bool reused;
 }

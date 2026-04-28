@@ -52,20 +52,31 @@ class AuthUser {
       );
 }
 
-/// Invitation response from POST /api/v1/auth/invite
+/// Invitation response from POST /api/v1/auth/invite.
+/// `token` and `inviteUrl` are populated by the backend only when DEBUG=true
+/// (so a tester can copy-paste the value into the register screen instead
+/// of digging in the database). They are null in production builds.
 class InviteResponse {
   final String email;
   final String message;
+  final String? token;
+  final String? inviteUrl;
 
-  const InviteResponse({required this.email, required this.message});
+  const InviteResponse({
+    required this.email,
+    required this.message,
+    this.token,
+    this.inviteUrl,
+  });
 
   factory InviteResponse.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>;
+    final invitation = data['invitation'] as Map<String, dynamic>?;
     return InviteResponse(
-      email: (data['invitation'] as Map<String, dynamic>?)
-              ?['email'] as String? ??
-          '',
+      email: invitation?['email'] as String? ?? '',
       message: data['message'] as String? ?? '',
+      token: invitation?['token'] as String?,
+      inviteUrl: invitation?['invite_url'] as String?,
     );
   }
 }

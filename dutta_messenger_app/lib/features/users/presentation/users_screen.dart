@@ -84,10 +84,34 @@ class _UsersScreenState extends State<UsersScreen> {
     try {
       final results = await _api.search(q);
       if (!mounted || _lastQuery != q) return;
-      setState(() {
-        _results = results;
-        _loading = false;
-      });
+      // Overlay live online status. /users/search doesn't include it, so
+      // ask /users/online separately and merge. Failure is ignored —
+      // online dot is best-effort.
+      try {
+        final online = await _api.bulkOnlineStatus(results.map((u) => u.id));
+        if (!mounted || _lastQuery != q) return;
+        setState(() {
+          _results = results
+              .map((u) => UserProfile(
+                    id: u.id,
+                    fullName: u.fullName,
+                    email: u.email,
+                    avatarUrl: u.avatarUrl,
+                    bio: u.bio,
+                    status: u.status,
+                    isOnline: online.contains(u.id) || u.isOnline,
+                    lastSeenAt: u.lastSeenAt,
+                  ))
+              .toList();
+          _loading = false;
+        });
+      } on ApiError {
+        if (!mounted || _lastQuery != q) return;
+        setState(() {
+          _results = results;
+          _loading = false;
+        });
+      }
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() {

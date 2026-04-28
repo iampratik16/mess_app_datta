@@ -103,7 +103,7 @@ class MediaUploader {
   final MediaApi _api;
 
   /// Plain Dio instance for the direct-to-S3 PUT — no auth interceptor,
-  /// no ngrok header, nothing. Sending our Bearer token to S3 would
+  /// no extra headers, nothing. Sending our Bearer token to S3 would
   /// trigger `403 SignatureDoesNotMatch`.
   final Dio _s3;
 
@@ -122,11 +122,23 @@ class MediaUploader {
     String? fileName,
     UploadProgress? onProgress,
     String? idempotencyKey,
+    String? mimeType,
   }) async {
     final name = fileName ?? file.uri.pathSegments.last;
     final stat = await file.stat();
     final size = stat.size;
-    final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
+    // Order: explicit override → mime pkg lookup by path → lookup by
+    // filename → sniff magic bytes → last-resort octet-stream. Android
+    // image_picker returns temp files like `/cache/REC12345` with no
+    // extension for videos, so path-based lookup fails and the old
+    // default of octet-stream tripped MediaLimits.validate. Sniffing the
+    // first 64 bytes recovers the mime from the container signature.
+    final sniffed = await _sniffMime(file);
+    final mime = mimeType ??
+        lookupMimeType(file.path) ??
+        lookupMimeType(name) ??
+        sniffed ??
+        'application/octet-stream';
 
     final clientError =
         MediaLimits.validate(fileName: name, fileSize: size, mimeType: mime);
@@ -183,6 +195,64 @@ class MediaUploader {
       return await _api.completeUpload(init.uploadId);
     } on ApiError catch (e) {
       throw MediaUploadException('complete failed: ${e.message}', cause: e);
+    }
+  }
+
+  /// Read the first 32 bytes and detect common container signatures.
+  /// Covers the MIME types the backend accepts per `media.md` — mainly
+  /// needed for videos, where Android's temp filenames lose the extension
+  /// and `lookupMimeType` returns null.
+  Future<String?> _sniffMime(File file) async {
+    try {
+      final raf = await file.open();
+      final head = await raf.read(32);
+      await raf.close();
+      if (head.length < 12) return null;
+      // ISO BMFF (mp4, mov): bytes 4..7 == 'ftyp'
+      if (head[4] == 0x66 &&
+          head[5] == 0x74 &&
+          head[6] == 0x79 &&
+          head[7] == 0x70) {
+        // Brand at 8..11 disambiguates mp4 vs mov. `qt  ` = QuickTime.
+        final brand = String.fromCharCodes(head.sublist(8, 12));
+        if (brand.startsWith('qt')) return 'video/quicktime';
+        return 'video/mp4';
+      }
+      // WebM / Matroska (EBML header): 0x1A 0x45 0xDF 0xA3
+      if (head[0] == 0x1A &&
+          head[1] == 0x45 &&
+          head[2] == 0xDF &&
+          head[3] == 0xA3) {
+        return 'video/webm';
+      }
+      // JPEG: FF D8 FF
+      if (head[0] == 0xFF && head[1] == 0xD8 && head[2] == 0xFF) {
+        return 'image/jpeg';
+      }
+      // PNG: 89 50 4E 47
+      if (head[0] == 0x89 &&
+          head[1] == 0x50 &&
+          head[2] == 0x4E &&
+          head[3] == 0x47) {
+        return 'image/png';
+      }
+      // GIF: 'GIF8'
+      if (head[0] == 0x47 &&
+          head[1] == 0x49 &&
+          head[2] == 0x46 &&
+          head[3] == 0x38) {
+        return 'image/gif';
+      }
+      // PDF: '%PDF'
+      if (head[0] == 0x25 &&
+          head[1] == 0x50 &&
+          head[2] == 0x44 &&
+          head[3] == 0x46) {
+        return 'application/pdf';
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 }

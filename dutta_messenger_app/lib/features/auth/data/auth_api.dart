@@ -11,15 +11,31 @@ class AuthApi {
   AuthApi() : _dio = ApiClient().dio;
 
   /// POST /api/v1/institutions
-  /// Create an institution. Open endpoint — no auth required.
+  /// Create an institution (multi-tenant bootstrap). Open endpoint — no auth.
+  /// Returns the new institution row (id, name, domain, tier, limits, …).
+  /// Path is `/institutions`, not `/auth/institutions` — see auth_routes.py.
   Future<Map<String, dynamic>> createInstitution({
     required String name,
-    required String domain,
+    String? description,
+    String? domain,
+    String? logoUrl,
+    String subscriptionTier = 'free',
+    int maxUsers = 50,
+    int maxGroups = 20,
   }) async {
     try {
       final response = await _dio.post(
         '/institutions',
-        data: {'name': name, 'domain': domain},
+        data: {
+          'name': name,
+          if (description != null && description.isNotEmpty)
+            'description': description,
+          if (domain != null && domain.isNotEmpty) 'domain': domain,
+          if (logoUrl != null && logoUrl.isNotEmpty) 'logo_url': logoUrl,
+          'subscription_tier': subscriptionTier,
+          'max_users': maxUsers,
+          'max_groups': maxGroups,
+        },
       );
       return response.data['data'] as Map<String, dynamic>;
     } on DioException catch (e) {
@@ -61,14 +77,16 @@ class AuthApi {
   }
 
   /// POST /api/v1/auth/register
-  /// Complete registration using an invitation token.
-  /// The invitation_token comes from the email that the invitee receives.
-  /// In dev/test — read it directly from the DB (see smoke test docs).
-  Future<LoginResponse> registerWithInvite({
+  /// Complete registration using an invitation token. The backend returns
+  /// only `{user, message}` — no tokens — so this method does NOT auto-log
+  /// the new user in. Call [login] right after if you want a session.
+  /// (See [AuthRepository.registerWithInvite] for the chained version.)
+  Future<AuthUser> registerWithInvite({
     required String email,
     required String password,
     required String fullName,
     required String invitationToken,
+    String? phoneNumber,
   }) async {
     try {
       final response = await _dio.post(
@@ -78,9 +96,13 @@ class AuthApi {
           'password': password,
           'full_name': fullName,
           'invitation_token': invitationToken,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phone_number': phoneNumber,
         },
       );
-      return LoginResponse.fromJson(response.data as Map<String, dynamic>);
+      final data = response.data['data'] as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>;
+      return AuthUser.fromJson(user);
     } on DioException catch (e) {
       throw ApiError.fromDioException(e);
     }
@@ -98,6 +120,27 @@ class AuthApi {
         // Current access token attached by AuthInterceptor
       );
       return TokenPair.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
+  /// POST /api/v1/auth/change-password
+  /// Change the authenticated user's password. Requires the current
+  /// password for confirmation — prevents session-token theft from being
+  /// a password reset.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post(
+        '/auth/change-password',
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      );
     } on DioException catch (e) {
       throw ApiError.fromDioException(e);
     }

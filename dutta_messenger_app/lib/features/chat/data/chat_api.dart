@@ -79,6 +79,24 @@ class ChatApi {
     }
   }
 
+  /// PATCH /chat/messages/{id} — edit own message. Server returns the
+  /// updated row; other clients currently see the edit on next refresh
+  /// (no WS broadcast for edits yet).
+  Future<Message> editMessage({
+    required String messageId,
+    required String content,
+  }) async {
+    try {
+      final r = await _dio.patch(
+        '/chat/messages/$messageId',
+        data: {'content': content},
+      );
+      return Message.fromJson(r.data['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
   /// POST /chat/conversations/{id}/read
   Future<void> markRead({
     required String conversationId,

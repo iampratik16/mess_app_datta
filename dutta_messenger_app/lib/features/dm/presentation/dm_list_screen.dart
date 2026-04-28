@@ -26,6 +26,7 @@ class _DmListScreenState extends State<DmListScreen> {
   bool _loading = true;
   String? _error;
   List<_DmEntry> _entries = [];
+  Set<String> _onlineIds = {};
 
   @override
   void initState() {
@@ -53,8 +54,23 @@ class _DmListScreenState extends State<DmListScreen> {
         return _DmEntry(group: g, other: other);
       }));
       if (!mounted) return;
+      // Best-effort online dot via /users/online — failure is silent.
+      Set<String> online = const {};
+      final ids = entries
+          .map((e) => e.other?.id)
+          .whereType<String>()
+          .toList();
+      if (ids.isNotEmpty) {
+        try {
+          online = await _usersApi.bulkOnlineStatus(ids);
+        } on ApiError {
+          online = const {};
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _entries = entries;
+        _onlineIds = online;
         _loading = false;
       });
     } on ApiError catch (e) {
@@ -168,10 +184,16 @@ class _DmListScreenState extends State<DmListScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         itemCount: _entries.length,
         separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (ctx, i) => _DmRow(
-          entry: _entries[i],
-          onTap: () => _openEntry(_entries[i]),
-        ),
+        itemBuilder: (ctx, i) {
+          final entry = _entries[i];
+          final isOnline = entry.other != null &&
+              _onlineIds.contains(entry.other!.id);
+          return _DmRow(
+            entry: entry,
+            isOnline: isOnline,
+            onTap: () => _openEntry(entry),
+          );
+        },
       ),
     );
   }
@@ -184,9 +206,14 @@ class _DmEntry {
 }
 
 class _DmRow extends StatelessWidget {
-  const _DmRow({required this.entry, required this.onTap});
+  const _DmRow({
+    required this.entry,
+    required this.onTap,
+    this.isOnline = false,
+  });
   final _DmEntry entry;
   final VoidCallback onTap;
+  final bool isOnline;
 
   @override
   Widget build(BuildContext context) {
@@ -207,23 +234,42 @@ class _DmRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+              Stack(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                      ),
+                    ),
+                    child: Text(
+                      initials,
+                      style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700),
+                    ),
                   ),
-                ),
-                child: Text(
-                  initials,
-                  style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700),
-                ),
+                  if (isOnline)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF2ED573),
+                          border: Border.all(
+                              color: const Color(0xFF0F0C29), width: 2),
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 14),
               Expanded(

@@ -1,19 +1,18 @@
-/// App-wide configuration. Update ngrokBaseUrl every time you restart ngrok.
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+/// App-wide configuration. `API_BASE` is the only URL source — read from
+/// `.env` at startup (see `main.dart` → `dotenv.load()`). Never hardcode
+/// the backend URL anywhere else in the app; that's a one-way ticket to
+/// shipping a build that points at a dead dev tunnel. See
+/// `docs/ui-contract/environments.md`.
 class AppConfig {
-  // Default: ngrok HTTPS tunnel for mobile device testing.
-  // For web testing against a local backend, swap to http://127.0.0.1:8765.
-  static const String ngrokBaseUrl =
-      'https://pried-unbent-prelude.ngrok-free.dev';
-  // static const String ngrokBaseUrl = 'http://127.0.0.1:8765';
-  // External handoff tunnel: https://earthquaking-charlena-phonily.ngrok-free.dev
+  /// The backend's public URL, loaded from the `.env` asset at startup.
+  /// For the production DuttaMessenger deployment this is
+  /// `https://dattamessenger.duckdns.org`.
+  static String get apiBaseUrl => dotenv.env['API_BASE'] ?? '';
 
   static const String apiVersion = '/api/v1';
-  static String get baseUrl => '$ngrokBaseUrl$apiVersion';
-
-  // Required on every request to ngrok tunnels.
-  static const Map<String, String> ngrokHeaders = {
-    'ngrok-skip-browser-warning': '1',
-  };
+  static String get baseUrl => '$apiBaseUrl$apiVersion';
 
   /// Credentials that pre-fill the login form. Override per-device at
   /// build time:
@@ -22,11 +21,10 @@ class AppConfig {
   ///       --dart-define=DEFAULT_PASSWORD=DemoP@ss123!
   static const String defaultLoginEmail = String.fromEnvironment(
     'DEFAULT_EMAIL',
-    defaultValue: 'admin@smoke.test',
+    defaultValue: 'admin@demo.school',
   );
   static const String defaultLoginPassword = String.fromEnvironment(
     'DEFAULT_PASSWORD',
-    defaultValue: 'Sup3rStr0ng!',
+    defaultValue: 'Pratik@16abab',
   );
 }
-

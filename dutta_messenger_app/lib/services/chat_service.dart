@@ -19,9 +19,18 @@ class ChatService {
   String? _token;
   final Set<String> _subscribed = <String>{};
   final Map<String, StreamController<Map<String, dynamic>>> _streams = {};
+  // Server-emitted error frames (`{"type":"error","message":"..."}`).
+  // UI listens via [errors] to surface SnackBars without coupling the
+  // service to BuildContext.
+  final StreamController<String> _errorController =
+      StreamController<String>.broadcast();
   bool _authed = false;
   bool _disposed = false;
   Timer? _reconnectTimer;
+
+  /// Broadcast stream of server-side error messages received over the
+  /// chat WebSocket. Listen once at app shell level and show a SnackBar.
+  Stream<String> get errors => _errorController.stream;
 
   /// Returns a broadcast stream of `message` objects for the given conversation.
   /// Safe to call before `connect` — the stream starts emitting once the socket
@@ -119,6 +128,10 @@ class ChatService {
         if (cid == null) return;
         final controller = _streams[cid];
         controller?.add(msg);
+        break;
+      case 'error':
+        final m = frame['message']?.toString() ?? 'WebSocket error';
+        if (!_errorController.isClosed) _errorController.add(m);
         break;
       default:
         // ignore subscribed, pong, etc.

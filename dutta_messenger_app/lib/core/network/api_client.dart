@@ -5,7 +5,7 @@ import '../config/app_config.dart';
 import '../errors/api_error.dart';
 import '../storage/secure_storage.dart';
 
-/// Global Dio HTTP client with auth, logging, and ngrok headers.
+/// Global Dio HTTP client with auth + request-id logging.
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -19,8 +19,6 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 15),
       headers: {
         'Content-Type': 'application/json',
-        // Required for ngrok tunnels — prevents browser warning interception
-        'ngrok-skip-browser-warning': '1',
       },
     ));
 

@@ -30,11 +30,47 @@ class ApiError implements Exception {
       );
     }
 
-    // FastAPI default format (Gap B — some endpoints still use this)
+    // FastAPI default format. `detail` is usually a string but pydantic
+    // validation responses ship it as a List[dict] / Map; coerce so the
+    // `as String?` cast doesn't crash the app.
+    //
+    // Some endpoints double-wrap (HTTPException(detail=<dict>)) so we end
+    // up with `{"detail": {"error": {"code": ..., "message": ...}}}` —
+    // peel the inner error envelope so the user sees a clean message
+    // instead of the whole map's toString.
     if (data is Map && data.containsKey('detail')) {
+      final detail = data['detail'];
+      if (detail is Map && detail['error'] is Map) {
+        final err = detail['error'] as Map;
+        return ApiError(
+          code: err['code']?.toString() ?? _statusToCode(statusCode),
+          message: err['message']?.toString() ?? 'An error occurred.',
+          details: err['details'] is Map<String, dynamic>
+              ? err['details'] as Map<String, dynamic>
+              : null,
+          statusCode: statusCode,
+        );
+      }
+      final String message;
+      if (detail is String) {
+        message = detail;
+      } else if (detail == null) {
+        message = 'An error occurred.';
+      } else if (detail is Map && detail['message'] is String) {
+        message = detail['message'] as String;
+      } else if (detail is List && detail.isNotEmpty) {
+        // Pydantic validation: list of {loc, msg, type}
+        final first = detail.first;
+        message = first is Map && first['msg'] is String
+            ? first['msg'] as String
+            : detail.toString();
+      } else {
+        message = detail.toString();
+      }
       return ApiError(
         code: _statusToCode(statusCode),
-        message: data['detail'] as String? ?? 'An error occurred.',
+        message: message,
+        details: detail is Map<String, dynamic> ? detail : null,
         statusCode: statusCode,
       );
     }

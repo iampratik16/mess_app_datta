@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "260758274056",
+    "project_id": "project-aura-msg",
+    "storage_bucket": "project-aura-msg.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:260758274056:android:f393ff5c80d258e8f311bd",
+        "android_client_info": {
+          "package_name": "com.example.project_aura"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "260758274056-6a1m99498nspmqq3c8g3v3m3ao4hkmc8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.project_aura",
+            "certificate_hash": "5501c0807a42b6ddff6bfb97aae3535bab32c011"
+          }
+        },
+        {
+          "client_id": "260758274056-kiodcdms6dgppub2591cc7rgg11r4fe6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdRpl2mAI6l1NPSB-eQ2fv2Ki7EGmSfKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "260758274056-kiodcdms6dgppub2591cc7rgg11r4fe6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "260758274056-aoioqfno4ta1m7a15q5pgci0c2l50ele.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.radlabs.duttaMessengerApp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:260758274056:android:5d2d9db9deb8521bf311bd",
+        "android_client_info": {
+          "package_name": "com.radlabs.dutta_messenger_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "260758274056-kiodcdms6dgppub2591cc7rgg11r4fe6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdRpl2mAI6l1NPSB-eQ2fv2Ki7EGmSfKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "260758274056-kiodcdms6dgppub2591cc7rgg11r4fe6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "260758274056-aoioqfno4ta1m7a15q5pgci0c2l50ele.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.radlabs.duttaMessengerApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

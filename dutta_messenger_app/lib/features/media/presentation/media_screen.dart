@@ -43,7 +43,8 @@ class _MediaScreenState extends State<MediaScreen> {
     try {
       final xfile = await _imagePicker.pickImage(source: ImageSource.gallery);
       if (xfile == null) return;
-      await _upload(File(xfile.path), nameOverride: xfile.name);
+      await _upload(File(xfile.path),
+          nameOverride: xfile.name, mimeHint: xfile.mimeType);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Could not open gallery: $e');
@@ -54,10 +55,41 @@ class _MediaScreenState extends State<MediaScreen> {
     try {
       final xfile = await _imagePicker.pickImage(source: ImageSource.camera);
       if (xfile == null) return;
-      await _upload(File(xfile.path), nameOverride: xfile.name);
+      await _upload(File(xfile.path),
+          nameOverride: xfile.name, mimeHint: xfile.mimeType);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Could not open camera: $e');
+    }
+  }
+
+  Future<void> _pickVideoFromGallery() async {
+    try {
+      final xfile =
+          await _imagePicker.pickVideo(source: ImageSource.gallery);
+      if (xfile == null) return;
+      await _upload(File(xfile.path),
+          nameOverride: xfile.name, mimeHint: xfile.mimeType);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not open video library: $e');
+    }
+  }
+
+  Future<void> _recordVideo() async {
+    try {
+      // 5 min cap keeps us comfortably under the 100 MB backend ceiling
+      // and the pickVideo spec's expected-duration UX.
+      final xfile = await _imagePicker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: const Duration(minutes: 5),
+      );
+      if (xfile == null) return;
+      await _upload(File(xfile.path),
+          nameOverride: xfile.name, mimeHint: xfile.mimeType);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not record video: $e');
     }
   }
 
@@ -76,7 +108,8 @@ class _MediaScreenState extends State<MediaScreen> {
     }
   }
 
-  Future<void> _upload(File file, {String? nameOverride}) async {
+  Future<void> _upload(File file,
+      {String? nameOverride, String? mimeHint}) async {
     final name = nameOverride ?? file.uri.pathSegments.last;
     setState(() {
       _error = null;
@@ -86,6 +119,7 @@ class _MediaScreenState extends State<MediaScreen> {
       final media = await _uploader.upload(
         file: file,
         fileName: nameOverride,
+        mimeType: mimeHint,
         onProgress: (sent, total) {
           if (!mounted) return;
           setState(() {
@@ -204,6 +238,22 @@ class _MediaScreenState extends State<MediaScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   _pickFromCamera();
+                },
+              ),
+              _PickerTile(
+                icon: Icons.video_library_outlined,
+                label: 'Video library',
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickVideoFromGallery();
+                },
+              ),
+              _PickerTile(
+                icon: Icons.videocam_outlined,
+                label: 'Record a video',
+                onTap: () {
+                  Navigator.pop(context);
+                  _recordVideo();
                 },
               ),
               _PickerTile(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/auth_repository.dart';
@@ -5,7 +7,10 @@ import '../../../core/errors/api_error.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../services/chat_service.dart';
+import '../../../services/push_token_service.dart';
 import '../../home/presentation/home_screen.dart';
+import 'create_institution_screen.dart';
+import 'register_with_invite_screen.dart';
 
 /// Premium login screen for DuttaMessenger.
 /// Integrates with the backend via AuthRepository.
@@ -74,6 +79,9 @@ class _LoginScreenState extends State<LoginScreen>
       // One socket per logged-in user; survives screen changes until logout.
       final token = await SecureTokenStorage.getAccessToken();
       if (token != null) ChatService.instance.connect(token);
+      // Best-effort FCM registration. Runs in background — no UI block.
+      // Errors and the no-Firebase-config case are surfaced via Settings.
+      unawaited(PushTokenService.instance.registerForCurrentUser());
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
@@ -116,6 +124,8 @@ class _LoginScreenState extends State<LoginScreen>
                       _buildLogo(),
                       const SizedBox(height: 40),
                       _buildLoginCard(),
+                      const SizedBox(height: 14),
+                      _buildAlternateActions(),
                       const SizedBox(height: 16),
                       _buildServerInfo(),
                     ],
@@ -354,12 +364,55 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  Widget _buildAlternateActions() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            icon: const Icon(Icons.mark_email_read_outlined,
+                size: 18, color: Colors.white70),
+            label: Text('Have an invite?',
+                style: GoogleFonts.inter(
+                    color: Colors.white70, fontSize: 12)),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => RegisterWithInviteScreen(
+                  prefilledEmail: _emailController.text.trim().isEmpty
+                      ? null
+                      : _emailController.text.trim(),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 14,
+            color: Colors.white.withValues(alpha: 0.2),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.business_outlined,
+                size: 18, color: Colors.white70),
+            label: Text('Create institution',
+                style: GoogleFonts.inter(
+                    color: Colors.white70, fontSize: 12)),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const CreateInstitutionScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildServerInfo() {
     return Container(
       constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Text(
-        'Connected to: ${AppConfig.ngrokBaseUrl}',
+        'Connected to: ${AppConfig.apiBaseUrl}',
         textAlign: TextAlign.center,
         style: GoogleFonts.jetBrainsMono(
           fontSize: 10,

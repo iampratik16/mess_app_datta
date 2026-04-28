@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
+
 import '../../../core/errors/api_error.dart';
 import '../../../services/chat_service.dart';
+import '../../../services/push_token_service.dart';
 import '../../acl/data/acl_api.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/auth_models.dart';
@@ -10,6 +13,7 @@ import '../../dm/presentation/dm_list_screen.dart';
 import '../../groups/presentation/groups_screen.dart';
 import '../../media/presentation/media_screen.dart';
 import '../../notifications/presentation/notifications_bell.dart';
+import '../../users/presentation/profile_screen.dart';
 import '../../users/presentation/users_screen.dart';
 
 /// Landing screen shown after a successful sign in.
@@ -29,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _aclApi = AclApi();
   bool _isInviting = false;
   String? _inviteStatus;
+  String? _inviteToken;
+  String? _inviteUrl;
   List<String>? _permissions;
 
   @override
@@ -84,10 +90,16 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isInviting = true;
       _inviteStatus = null;
+      _inviteToken = null;
+      _inviteUrl = null;
     });
     try {
       final res = await _repo.inviteUser(email: email);
-      setState(() => _inviteStatus = res.message);
+      setState(() {
+        _inviteStatus = res.message;
+        _inviteToken = res.token;
+        _inviteUrl = res.inviteUrl;
+      });
     } on ApiError catch (e) {
       setState(() => _inviteStatus = 'Error: ${e.message}');
     } finally {
@@ -95,8 +107,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _copyToClipboard(String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('$label copied'),
+      ),
+    );
+  }
+
   Future<void> _logout() async {
     ChatService.instance.disconnect();
+    // Best-effort FCM cleanup before clearing the bearer token; uses the
+    // current session to call DELETE /notifications/tokens/{id}.
+    await PushTokenService.instance.revokeAndForget();
     await _repo.logout();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -170,12 +196,48 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: const Color(0xFF2ED573).withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Text(
-                      _inviteStatus!,
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF2ED573),
-                        fontSize: 13,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _inviteStatus!,
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF2ED573),
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (_inviteToken != null) ...[
+                          const SizedBox(height: 10),
+                          _InviteTokenRow(
+                            label: 'Token',
+                            value: _inviteToken!,
+                            mono: true,
+                            onCopy: () =>
+                                _copyToClipboard(_inviteToken!, 'Token'),
+                          ),
+                        ],
+                        if (_inviteUrl != null) ...[
+                          const SizedBox(height: 6),
+                          _InviteTokenRow(
+                            label: 'Invite URL',
+                            value: _inviteUrl!,
+                            onCopy: () =>
+                                _copyToClipboard(_inviteUrl!, 'URL'),
+                          ),
+                        ],
+                        if (_inviteToken != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Paste the token in Login → "Have an invite?" '
+                            'to register that user.',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: Colors.white60,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -225,6 +287,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.white54),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const MediaScreen()),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ActionTile(
+                  icon: Icons.person_outline,
+                  label: 'Profile & settings',
+                  subtitle: 'Edit your profile, change password, app settings',
+                  trailing: const Icon(Icons.chevron_right,
+                      color: Colors.white54),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => ProfileScreen(me: widget.user)),
                   ),
                 ),
                 if (_permissions != null && _permissions!.isNotEmpty) ...[
@@ -458,6 +532,62 @@ class _DisabledTile extends StatelessWidget {
               )),
         ],
       ),
+    );
+  }
+}
+
+/// Compact one-line row that shows an invite token / URL with a copy
+/// button. Used in the Home invite-result card so the admin can grab the
+/// value without leaving the app.
+class _InviteTokenRow extends StatelessWidget {
+  const _InviteTokenRow({
+    required this.label,
+    required this.value,
+    required this.onCopy,
+    this.mono = false,
+  });
+  final String label;
+  final String value;
+  final VoidCallback onCopy;
+  final bool mono;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = mono
+        ? GoogleFonts.jetBrainsMono(fontSize: 11, color: Colors.white)
+        : GoogleFonts.inter(fontSize: 11, color: Colors.white);
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+          child: Text(label,
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              )),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SelectableText(
+            value,
+            style: style,
+            maxLines: 2,
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy, size: 16, color: Colors.white70),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: 'Copy',
+          onPressed: onCopy,
+        ),
+      ],
     );
   }
 }

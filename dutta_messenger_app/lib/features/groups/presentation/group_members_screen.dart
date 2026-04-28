@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../media/data/avatar_picker.dart';
 import '../../users/data/users_api.dart';
 import '../../users/domain/user_models.dart';
 import '../data/groups_api.dart';
@@ -35,6 +36,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   String? _error;
   List<GroupMember> _members = [];
   Group? _group;
+  Set<String> _onlineUserIds = {};
 
   String? get _myRole {
     for (final m in _members) {
@@ -79,9 +81,19 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       }));
       final group = await groupFuture;
       if (!mounted) return;
+      // Best-effort presence overlay; failure is silent.
+      Set<String> online = const {};
+      try {
+        online = await _usersApi
+            .bulkOnlineStatus(hydrated.map((m) => m.userId));
+      } on ApiError {
+        online = const {};
+      }
+      if (!mounted) return;
       setState(() {
         _members = hydrated;
         _group = group;
+        _onlineUserIds = online;
         _loading = false;
       });
     } on ApiError catch (e) {
@@ -150,6 +162,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         groupId: widget.groupId,
         name: result.name,
         description: result.description,
+        avatarUrl: result.avatarUrl,
       );
       if (!mounted) return;
       setState(() => _group = updated);
@@ -384,6 +397,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         return _MemberRow(
           member: m,
           isMe: m.userId == widget.me.id,
+          isOnline: _onlineUserIds.contains(m.userId),
           onRemove: canRemove ? () => _removeMember(m) : null,
         );
       },
@@ -396,9 +410,11 @@ class _MemberRow extends StatelessWidget {
     required this.member,
     required this.isMe,
     required this.onRemove,
+    this.isOnline = false,
   });
   final GroupMember member;
   final bool isMe;
+  final bool isOnline;
   final VoidCallback? onRemove;
 
   @override
@@ -416,23 +432,42 @@ class _MemberRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+          Stack(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                  ),
+                ),
+                child: Text(
+                  initials,
+                  style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white),
+                ),
               ),
-            ),
-            child: Text(
-              initials,
-              style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white),
-            ),
+              if (isOnline)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 11,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF2ED573),
+                      border: Border.all(
+                          color: const Color(0xFF0F0C29), width: 2),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -707,9 +742,10 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
 }
 
 class _EditGroupResult {
-  const _EditGroupResult({this.name, this.description});
+  const _EditGroupResult({this.name, this.description, this.avatarUrl});
   final String? name;
   final String? description;
+  final String? avatarUrl;
 }
 
 class _EditGroupDialog extends StatefulWidget {
@@ -725,6 +761,14 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
       TextEditingController(text: widget.initial.name);
   late final TextEditingController _descCtrl =
       TextEditingController(text: widget.initial.description ?? '');
+  String? _avatarUrl;
+  bool _uploadingAvatar = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _avatarUrl = widget.initial.avatarUrl;
+  }
 
   @override
   void dispose() {
@@ -733,8 +777,19 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
     super.dispose();
   }
 
+  Future<void> _pickAvatar() async {
+    setState(() => _uploadingAvatar = true);
+    final url = await AvatarPicker.pickAndUpload(context);
+    if (!mounted) return;
+    setState(() {
+      _uploadingAvatar = false;
+      if (url != null) _avatarUrl = url;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
     return AlertDialog(
       backgroundColor: const Color(0xFF1E1B3A),
       title:
@@ -744,6 +799,70 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(40),
+                  onTap: _uploadingAvatar ? null : _pickAvatar,
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                          ),
+                        ),
+                        child: hasAvatar
+                            ? Image.network(
+                                _avatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const Icon(
+                                    Icons.groups,
+                                    color: Colors.white70,
+                                    size: 28),
+                              )
+                            : const Icon(Icons.groups,
+                                color: Colors.white70, size: 28),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF667EEA),
+                        ),
+                        child: _uploadingAvatar
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.edit,
+                                color: Colors.white, size: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _uploadingAvatar
+                        ? 'Uploading…'
+                        : hasAvatar
+                            ? 'Tap to change icon'
+                            : 'Tap to set group icon',
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: Colors.white60),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             TextField(
               controller: _nameCtrl,
               autofocus: true,
@@ -786,6 +905,8 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                 description: newDesc != (widget.initial.description ?? '')
                     ? newDesc
                     : null,
+                avatarUrl:
+                    _avatarUrl == widget.initial.avatarUrl ? null : _avatarUrl,
               ),
             );
           },

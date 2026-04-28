@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>260758274056-aoioqfno4ta1m7a15q5pgci0c2l50ele.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.260758274056-aoioqfno4ta1m7a15q5pgci0c2l50ele</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>260758274056-6a1m99498nspmqq3c8g3v3m3ao4hkmc8.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCEeuc_lTK8aHzslFPl2H6_h7xxlIkKGGM</string>
+	<key>GCM_SENDER_ID</key>
+	<string>260758274056</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.radlabs.duttaMessengerApp</string>
+	<key>PROJECT_ID</key>
+	<string>project-aura-msg</string>
+	<key>STORAGE_BUCKET</key>
+	<string>project-aura-msg.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:260758274056:ios:3b61ad972338d92ff311bd</string>
+</dict>
+</plist>

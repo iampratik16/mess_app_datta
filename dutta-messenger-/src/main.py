@@ -114,6 +114,16 @@ def create_app() -> FastAPI:
     async def _health_check() -> dict[str, str]:
         return {"status": "healthy"}
 
+    # ---- MinIO reverse-proxy --------------------------------------------
+    # Exposes MinIO's S3 API on the public API hostname so presigned URLs
+    # work from outside the host network (physical phones, etc). Only
+    # matches paths whose first segment is the MinIO bucket name — all
+    # other routes are untouched. See `shared/minio_proxy.py` for why.
+    if settings.STORAGE_TYPE.lower() == "minio":
+        from src.shared.minio_proxy import router as minio_proxy_router
+
+        app.include_router(minio_proxy_router)
+
     # ---- Module routers (each behind a feature flag) ---------------------
     from src.modules.auth.router import router as auth_router
 

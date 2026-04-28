@@ -16,6 +16,8 @@ class SecureTokenStorage {
   static const _refreshTokenKey = 'refresh_token';
   static const _institutionIdKey = 'institution_id';
   static const _userIdKey = 'user_id';
+  static const _fcmTokenIdKey = 'fcm_token_id';
+  static const _fcmTokenValueKey = 'fcm_token_value';
 
   static const _writeTimeout = Duration(seconds: 2);
   static const _readTimeout = Duration(seconds: 2);
@@ -72,6 +74,34 @@ class SecureTokenStorage {
   }
 
   static Future<String?> getInstitutionId() => _read(_institutionIdKey);
+
+  /// Persist the server's token row id (returned by POST /notifications/tokens)
+  /// so we can DELETE it on logout / token rotation.
+  static Future<void> saveFcmRegistration({
+    required String tokenId,
+    required String tokenValue,
+  }) async {
+    await Future.wait([
+      _write(_fcmTokenIdKey, tokenId),
+      _write(_fcmTokenValueKey, tokenValue),
+    ]);
+  }
+
+  static Future<String?> getFcmTokenId() => _read(_fcmTokenIdKey);
+  static Future<String?> getFcmTokenValue() => _read(_fcmTokenValueKey);
+
+  static Future<void> clearFcmRegistration() async {
+    _cache.remove(_fcmTokenIdKey);
+    _cache.remove(_fcmTokenValueKey);
+    try {
+      await Future.wait([
+        _storage.delete(key: _fcmTokenIdKey).timeout(_writeTimeout,
+            onTimeout: () {}),
+        _storage.delete(key: _fcmTokenValueKey).timeout(_writeTimeout,
+            onTimeout: () {}),
+      ]);
+    } catch (_) {/* ignored */}
+  }
 
   static Future<void> clearAll() async {
     _cache.clear();

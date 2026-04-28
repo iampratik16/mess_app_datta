@@ -32,29 +32,23 @@ class AuthRepository {
   Future<InviteResponse> inviteUser({required String email}) =>
       _api.inviteUser(email: email);
 
-  /// Complete registration with an invitation token.
-  /// [invitationToken] comes from the invitation email link.
+  /// Complete registration with an invitation token, then sign the new
+  /// user in. Two HTTP calls — register doesn't return tokens on its own.
   Future<AuthUser> registerWithInvite({
     required String email,
     required String password,
     required String fullName,
     required String invitationToken,
+    String? phoneNumber,
   }) async {
-    final response = await _api.registerWithInvite(
+    await _api.registerWithInvite(
       email: email,
       password: password,
       fullName: fullName,
       invitationToken: invitationToken,
+      phoneNumber: phoneNumber,
     );
-    await SecureTokenStorage.saveTokens(
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-    );
-    await SecureTokenStorage.saveUserContext(
-      institutionId: response.user.institutionId,
-      userId: response.user.id,
-    );
-    return response.user;
+    return login(email: email, password: password);
   }
 
   /// Logout — clear all stored tokens.
