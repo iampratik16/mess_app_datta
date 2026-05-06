@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
 import '../../../core/ui/app_theme.dart';
+import '../../../services/chat_service.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../media/data/avatar_picker.dart';
 import '../../users/data/users_api.dart';
@@ -39,6 +40,25 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   List<GroupMember> _members = [];
   Group? _group;
   Set<String> _onlineUserIds = {};
+  StreamSubscription<String>? _membershipSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    // Live composition updates from another device (admin adds/removes
+    // someone while this screen is open). Refetch on hits to our id.
+    _membershipSub =
+        ChatService.instance.groupMembershipChanged.listen((groupId) {
+      if (mounted && groupId == widget.groupId) _refetchMembers();
+    });
+  }
+
+  @override
+  void dispose() {
+    _membershipSub?.cancel();
+    super.dispose();
+  }
 
   String? get _myRole {
     for (final m in _members) {
@@ -49,12 +69,6 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
 
   bool get _canManage => _myRole == 'owner' || _myRole == 'admin';
   bool get _isOwner => _myRole == 'owner';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
 
   Future<void> _load() async {
     setState(() {
@@ -118,7 +132,12 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     );
     if (added == null || !mounted) return;
 
-    // Optimistic append + rollback on failure.
+    // Optimistic append for snappy feedback, then on success follow up
+    // with a full _refetchMembers() to reconcile against the server
+    // truth (audit 3.1 option b — the response itself is just an
+    // {reused, role} ack and doesn't carry the full member list). On
+    // failure roll the optimistic row back.
+    final snapshot = _members;
     setState(() {
       _members = [
         ..._members,
@@ -127,7 +146,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     });
     try {
       await _api.addMember(groupId: widget.groupId, userId: added.id);
-      // Server response is idempotent (reused:true if already a member).
+      await _refetchMembers();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -137,9 +156,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       );
     } on ApiError catch (e) {
       if (!mounted) return;
-      setState(() {
-        _members = _members.where((m) => m.userId != added.id).toList();
-      });
+      setState(() => _members = snapshot);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: kDangerInk,
@@ -225,6 +242,9 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
         _members = _members.where((x) => x.userId != m.userId).toList());
     try {
       await _api.removeMember(groupId: widget.groupId, userId: m.userId);
+      // Same pattern as add — reconcile from the server's authoritative
+      // member list rather than trusting our optimistic local state.
+      await _refetchMembers();
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _members = snapshot);
@@ -234,6 +254,46 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
           content: Text('Remove failed: ${e.message}'),
         ),
       );
+    }
+  }
+
+  /// GET /groups/{id}/members — reconcile local state with the server
+  /// truth. Used by add/remove flows immediately after the mutation
+  /// succeeds. Hydration of missing user profiles + presence overlay
+  /// match what [_load] does on first mount, so the row visuals don't
+  /// "jump" between optimistic and reconciled state.
+  Future<void> _refetchMembers() async {
+    try {
+      final raw = await _api.listMembers(widget.groupId);
+      final hydrated = await Future.wait(raw.map((m) async {
+        if (m.user != null) return m;
+        try {
+          final u = await _usersApi.getById(m.userId);
+          return GroupMember(
+            userId: m.userId,
+            role: m.role,
+            user: u,
+            joinedAt: m.joinedAt,
+          );
+        } on ApiError {
+          return m;
+        }
+      }));
+      Set<String> online = const {};
+      try {
+        online = await _usersApi
+            .bulkOnlineStatus(hydrated.map((m) => m.userId));
+      } on ApiError {
+        online = const {};
+      }
+      if (!mounted) return;
+      setState(() {
+        _members = hydrated;
+        _onlineUserIds = online;
+      });
+    } on ApiError {
+      // Silent on refetch failure — the optimistic state stays as-is
+      // and the next manual refresh / next mutation will reconcile.
     }
   }
 
@@ -357,11 +417,14 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
-      itemCount: rows.length,
-      separatorBuilder: (_, _) => kListDivider,
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
+      itemCount: rows.length + 1,
+      separatorBuilder: (_, i) => i == 0
+          ? const SizedBox.shrink()
+          : kListDivider,
       itemBuilder: (ctx, i) {
-        final m = rows[i];
+        if (i == 0) return _MemberCountHeader(count: rows.length);
+        final m = rows[i - 1];
         final canRemove =
             _canManage && m.role != 'owner' && m.userId != widget.me.id;
         return _MemberRow(
@@ -371,6 +434,56 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
           onRemove: canRemove ? () => _removeMember(m) : null,
         );
       },
+    );
+  }
+}
+
+/// Big count above the member rows. Demo wanted a prominent affordance
+/// rather than just the AppBar subtitle — easier to spot when the
+/// members list grows.
+class _MemberCountHeader extends StatelessWidget {
+  const _MemberCountHeader({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: kAccent.withValues(alpha: 0.18),
+            ),
+            child: const Icon(Icons.groups, color: kAccentDeep, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$count ${count == 1 ? 'member' : 'members'}',
+                style: GoogleFonts.playfairDisplay(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: kInkDark,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                count == 1
+                    ? 'You\'re the only one here yet.'
+                    : 'Everyone with access to this group.',
+                style: GoogleFonts.inter(fontSize: 12, color: kInkMuted),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

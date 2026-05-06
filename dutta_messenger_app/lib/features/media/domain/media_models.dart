@@ -58,6 +58,20 @@ class MediaFile {
   bool get isInRecycleBin => recycleBinAt != null;
 }
 
+/// Response of GET /media/{id}/download — a short-lived presigned
+/// GET URL plus the absolute timestamp at which it expires.
+///
+/// The audit (5.5 / 5.8) calls out that these URLs are 1 h by default
+/// and that holding one in app state past the TTL surfaces as a
+/// 403 SignatureExpired in the user's chat bubble. Treating
+/// `expiresAt` as load-bearing — pre-emptively refetching when within
+/// 60 s of it — is the demo-safe behaviour.
+class MediaDownloadInfo {
+  const MediaDownloadInfo({required this.url, required this.expiresAt});
+  final String url;
+  final DateTime expiresAt;
+}
+
 /// Response of POST /media/upload/init — the presigned PUT URL the
 /// client streams the bytes to.
 class MediaUploadInit {

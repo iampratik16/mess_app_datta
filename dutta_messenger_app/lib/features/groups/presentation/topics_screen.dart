@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
 import '../../../core/ui/app_theme.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../chat/domain/chat_type.dart';
 import '../../chat/presentation/chat_screen.dart';
 import '../data/groups_api.dart';
 import '../domain/group_models.dart';
@@ -77,6 +78,7 @@ class _TopicsScreenState extends State<TopicsScreen> {
           groupId: widget.group.id,
           groupName: '${widget.group.name} · ${t.name}',
           me: widget.me,
+          chatType: ChatType.group,
           topicId: t.id,
         ),
       ),
@@ -151,13 +153,16 @@ class _TopicsScreenState extends State<TopicsScreen> {
     );
     if (ok != true) return;
 
-    final snapshot = _topics;
-    setState(() => _topics = _topics.where((x) => x.id != t.id).toList());
+    // Server returns the updated topic list — hard-replace local state
+    // from the response (audit 3.1 option a). On failure leave existing
+    // state untouched and surface the error.
     try {
-      await _api.deleteTopic(groupId: widget.group.id, topicId: t.id);
+      final result =
+          await _api.deleteTopic(groupId: widget.group.id, topicId: t.id);
+      if (!mounted) return;
+      setState(() => _topics = result.topics);
     } on ApiError catch (e) {
       if (!mounted) return;
-      setState(() => _topics = snapshot);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: kDangerInk,

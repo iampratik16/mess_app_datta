@@ -9,7 +9,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../../../core/ui/app_theme.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/push_token_service.dart';
-import '../../home/presentation/home_screen.dart';
+import '../../home/presentation/main_shell.dart';
 import 'create_institution_screen.dart';
 import 'register_with_invite_screen.dart';
 
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen>
       unawaited(PushTokenService.instance.registerForCurrentUser());
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+        MaterialPageRoute(builder: (_) => MainShell(user: user)),
       );
     } on ApiError catch (e) {
       setState(() => _errorMessage = e.message);
@@ -172,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         const SizedBox(height: 22),
         Text(
-          'DuttaMessenger',
+          'Datta Messenger',
           style: GoogleFonts.playfairDisplay(
             fontSize: 34,
             fontWeight: FontWeight.w700,

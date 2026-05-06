@@ -99,6 +99,19 @@ async def send_message(
     the payload mirrors the one the WS handler emits.
     """
     from src.modules.chat.routes.ws_routes import _broadcast  # local to avoid cycle
+    from src.modules.media.services.media_service import MediaService
+
+    # Privacy guard: re-sharing existing vault media is allowed only if
+    # every referenced media_id is owned by the sender (or the user just
+    # uploaded it themselves, which is the same row). Raises 403 on the
+    # first id that fails — no partial sends.
+    if data.media_ids:
+        await MediaService.assert_uploader_owns(
+            db,
+            institution_id=current_user["institution_id"],
+            uploader_id=current_user["user_id"],
+            media_ids=data.media_ids,
+        )
 
     msg = await MessageService.send_message(
         db,

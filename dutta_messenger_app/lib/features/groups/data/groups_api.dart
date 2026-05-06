@@ -165,16 +165,38 @@ class GroupsApi {
   }
 
   /// DELETE /groups/{id}/topics/{topic_id} — admin/owner, cannot delete "General".
-  Future<void> deleteTopic({
+  ///
+  /// Returns the updated group and the remaining topic list so the
+  /// caller can hard-replace local state without a follow-up GET
+  /// (audit 3.1 option a). Older builds that returned 204 will throw
+  /// at the cast — bump backend before deploying this client.
+  Future<TopicDeleteResult> deleteTopic({
     required String groupId,
     required String topicId,
   }) async {
     try {
-      await _dio.delete('/groups/$groupId/topics/$topicId');
+      final r = await _dio.delete('/groups/$groupId/topics/$topicId');
+      final data = r.data['data'] as Map<String, dynamic>;
+      final topics = (data['topics'] as List?) ?? const [];
+      return TopicDeleteResult(
+        group: Group.fromJson(data['group'] as Map<String, dynamic>),
+        topics: topics
+            .whereType<Map<String, dynamic>>()
+            .map(Topic.fromJson)
+            .toList(),
+      );
     } on DioException catch (e) {
       throw ApiError.fromDioException(e);
     }
   }
+}
+
+/// Server response for `DELETE /groups/{id}/topics/{topic_id}` —
+/// the updated group plus the remaining topics.
+class TopicDeleteResult {
+  const TopicDeleteResult({required this.group, required this.topics});
+  final Group group;
+  final List<Topic> topics;
 }
 
 /// A group membership row — wraps the nested user + role.

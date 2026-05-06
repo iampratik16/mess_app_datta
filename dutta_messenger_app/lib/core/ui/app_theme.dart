@@ -277,6 +277,118 @@ class _CreamFilterChip extends StatelessWidget {
   }
 }
 
+/// Standard input decoration for cream-themed text fields. Centralises
+/// label / fill / border styling so every form across the app can share
+/// the same look without re-declaring it.
+InputDecoration creamInputDecoration({
+  String? label,
+  String? hint,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  Color? fillColor,
+}) {
+  return InputDecoration(
+    labelText: label,
+    labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+    floatingLabelStyle: GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+    hintText: hint,
+    hintStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 14),
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: fillColor ?? kCreamField,
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: kHairline),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: kAccent, width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: kDangerInk),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: kDangerInk, width: 1.5),
+    ),
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+  );
+}
+
+/// Small all-caps section label used above form fields and section
+/// groupings. Optional [trailing] sits on the right side (e.g. a hint
+/// like "Minimum 8 characters").
+class CreamFieldLabel extends StatelessWidget {
+  const CreamFieldLabel({super.key, required this.label, this.trailing});
+  final String label;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: kInkMuted,
+            letterSpacing: 1.6,
+          ),
+        ),
+        const Spacer(),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+/// Amber-tinted info banner with a leading icon and rich text body.
+/// Used to surface short, important notices above forms (e.g. "Changing
+/// your password signs you out everywhere else").
+class CreamInfoBanner extends StatelessWidget {
+  const CreamInfoBanner({
+    super.key,
+    required this.text,
+    this.icon = Icons.info_outline,
+  });
+
+  final InlineSpan text;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: kAccent.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kAccent.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: kAccentDeep, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 13.5,
+                color: kInkDark,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Telegram-style three-pill header with frosted-glass pills sitting on
 /// the page background. Uses backdrop blur + translucent cream fills +
 /// hairline white borders so it matches the rest of the app's palette.
@@ -293,6 +405,7 @@ class CreamAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.subtitle,
     this.leadingAvatar,
     this.onAvatarTap,
+    this.onTitleTap,
     this.actions,
     this.automaticallyImplyLeading = true,
   });
@@ -307,6 +420,10 @@ class CreamAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Tap handler for [leadingAvatar]. Optional; if null the avatar is not
   /// interactive.
   final VoidCallback? onAvatarTap;
+
+  /// Tap handler for the title/subtitle area. Used by chat headers to open
+  /// a peer-info sheet on DM screens. If null the area is inert.
+  final VoidCallback? onTitleTap;
 
   /// Trailing icon-button actions packaged into one glass pill that sits
   /// between the title pill and the avatar.
@@ -352,34 +469,38 @@ class CreamAppBar extends StatelessWidget implements PreferredSizeWidget {
                   const SizedBox(width: 8),
                 ],
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: kInkDark,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        if (subtitle != null && subtitle!.isNotEmpty)
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onTitleTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            subtitle!,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: kInkMuted,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: kInkDark,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                      ],
+                          if (subtitle != null && subtitle!.isNotEmpty)
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: kInkMuted,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

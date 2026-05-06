@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../../services/push_token_service.dart';
 import '../data/users_api.dart';
 import '../domain/user_models.dart';
@@ -90,26 +91,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final s = _settings;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Settings',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Settings'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
-        child: SafeArea(child: _buildBody(s)),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
+        child: SafeArea(top: false, child: _buildBody(s)),
       ),
     );
   }
@@ -117,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildBody(UserSettings? s) {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null && s == null) {
       return Center(
@@ -125,45 +111,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(_error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: const Color(0xFFFF6B7A))),
+              style: GoogleFonts.inter(color: kDangerInk)),
         ),
       );
     }
     if (s == null) return const SizedBox.shrink();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
       children: [
-        _Section('Notifications'),
+        const _Section('Notifications'),
         _SwitchTile(
           label: 'Direct messages',
           value: s.notificationMessages,
-          onChanged: _saving
-              ? null
-              : (v) => _save(notificationMessages: v),
+          onChanged: _saving ? null : (v) => _save(notificationMessages: v),
         ),
         _SwitchTile(
           label: 'Group messages',
           value: s.notificationGroups,
-          onChanged: _saving
-              ? null
-              : (v) => _save(notificationGroups: v),
+          onChanged: _saving ? null : (v) => _save(notificationGroups: v),
         ),
         _SwitchTile(
           label: 'Notification sound',
           value: s.notificationSound,
-          onChanged: _saving
-              ? null
-              : (v) => _save(notificationSound: v),
+          onChanged: _saving ? null : (v) => _save(notificationSound: v),
         ),
-        const SizedBox(height: 12),
-        _Section('Push notifications'),
+        const SizedBox(height: 14),
+        const _Section('Push notifications'),
         _PushStatusTile(
           state: PushTokenService.instance.state,
           error: PushTokenService.instance.lastError,
           onRetry: _retryPush,
         ),
-        const SizedBox(height: 12),
-        _Section('Appearance'),
+        const SizedBox(height: 14),
+        const _Section('Appearance'),
         _ChoiceTile(
           label: 'Theme',
           value: s.theme,
@@ -178,10 +158,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
-          Text(_error!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(_error!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(color: kDangerInk, fontSize: 12)),
+          ),
         ],
       ],
     );
@@ -193,17 +175,29 @@ class _Section extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 4, 10),
-        child: Text(
-          label.toUpperCase(),
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            color: Colors.white54,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
-          ),
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+        child: CreamFieldLabel(label: label),
       );
+}
+
+class _CardShell extends StatelessWidget {
+  const _CardShell({required this.child, this.padding});
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: kCreamCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kHairline),
+      ),
+      child: child,
+    );
+  }
 }
 
 class _SwitchTile extends StatelessWidget {
@@ -218,23 +212,21 @@ class _SwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
+    return _CardShell(
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
-        activeThumbColor: const Color(0xFF667EEA),
+        activeThumbColor: Colors.white,
+        activeTrackColor: kAccent,
+        inactiveThumbColor: Colors.white,
+        inactiveTrackColor: kInkSubtle.withValues(alpha: 0.35),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
         title: Text(label,
             style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.w500)),
+              fontSize: 16,
+              color: kInkDark,
+              fontWeight: FontWeight.w700,
+            )),
         contentPadding: EdgeInsets.zero,
       ),
     );
@@ -259,56 +251,60 @@ class _PushStatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, title, subtitle, color) = switch (state) {
+    final (icon, title, subtitle, fg) = switch (state) {
       PushState.idle => (
         Icons.notifications_off_outlined,
         'Not registered',
         'Sign out and back in to register this device.',
-        const Color(0xFF8A9CF5),
+        kInkMuted,
       ),
       PushState.initializing => (
         Icons.sync,
         'Registering…',
         'Asking the OS for a push token.',
-        const Color(0xFF8A9CF5),
+        kAccentDeep,
       ),
       PushState.notConfigured => (
         Icons.notifications_paused_outlined,
         'Push not configured on this build',
         'Add GoogleService-Info.plist (iOS) / google-services.json '
             '(Android) and reinstall to enable push delivery.',
-        const Color(0xFFF59E0B),
+        kAccentDeep,
       ),
       PushState.permissionDenied => (
         Icons.notifications_off_outlined,
         'Permission denied',
         'Enable notifications in iOS / Android settings, then retry.',
-        const Color(0xFFFF6B7A),
+        kDangerInk,
       ),
       PushState.registered => (
         Icons.notifications_active_outlined,
         'Registered',
         'This device will receive push notifications.',
-        const Color(0xFF2ED573),
+        const Color(0xFF3F7A4F),
       ),
       PushState.failed => (
         Icons.error_outline,
         'Registration failed',
         error ?? 'Unknown error',
-        const Color(0xFFFF6B7A),
+        kDangerInk,
       ),
     };
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+    return _CardShell(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color),
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: fg.withValues(alpha: 0.14),
+            ),
+            child: Icon(icon, color: fg, size: 20),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -316,15 +312,16 @@ class _PushStatusTile extends StatelessWidget {
               children: [
                 Text(title,
                     style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: kInkDark,
                     )),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: Colors.white60,
+                      fontSize: 12.5,
+                      color: kInkMuted,
+                      height: 1.35,
                     )),
               ],
             ),
@@ -333,9 +330,12 @@ class _PushStatusTile extends StatelessWidget {
               state != PushState.initializing)
             TextButton(
               onPressed: onRetry,
+              style: TextButton.styleFrom(
+                foregroundColor: kAccentDeep,
+              ),
               child: Text('Retry',
                   style: GoogleFonts.inter(
-                      color: const Color(0xFF8A9CF5), fontSize: 12)),
+                      fontSize: 13, fontWeight: FontWeight.w700)),
             ),
         ],
       ),
@@ -357,36 +357,38 @@ class _ChoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+    return _CardShell(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
               style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
+                fontSize: 16,
+                color: kInkDark,
+                fontWeight: FontWeight.w700,
+              )),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: choices.map((c) {
               final sel = c == value;
               return ChoiceChip(
                 label: Text(c),
                 selected: sel,
+                showCheckmark: false,
+                avatar: sel
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
                 labelStyle: GoogleFonts.inter(
-                  color: sel ? Colors.white : Colors.white70,
-                  fontSize: 12,
+                  color: sel ? kCream : kInkDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
-                selectedColor: const Color(0xFF667EEA),
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                selectedColor: kAccent,
+                backgroundColor: kCreamField,
+                side: BorderSide(color: sel ? kAccent : kHairline),
                 onSelected: onSelect == null ? null : (_) => onSelect!(c),
               );
             }).toList(),

@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/errors/api_error.dart';
 import '../../../core/ui/app_theme.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import '../data/media_api.dart';
 import '../data/media_uploader.dart';
+import '../data/media_vault_store.dart';
 import '../domain/media_models.dart';
 
 enum _MediaFilter { all, images, videos, files }
@@ -28,11 +30,23 @@ class _MediaScreenState extends State<MediaScreen> {
   final _uploader = MediaUploader();
   final _imagePicker = ImagePicker();
 
-  final List<MediaFile> _uploads = []; // session-local; no list endpoint yet
+  // Single source of truth — the Vault picker reads the same store, so
+  // anything uploaded here immediately appears as a re-share option in
+  // any open chat's vault picker.
+  MediaVaultStore get _store => MediaVaultStore.instance;
 
   _UploadTask? _active;
   String? _error;
   _MediaFilter _filter = _MediaFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    // Best-effort hydrate from the server. If `GET /media/` isn't
+    // deployed yet (404) the call is a no-op and we keep whatever
+    // local-only rows the user has uploaded this session.
+    _store.refreshFromServer(_api);
+  }
 
   Future<void> _pickFromGallery() async {
     try {
@@ -125,10 +139,8 @@ class _MediaScreenState extends State<MediaScreen> {
         },
       );
       if (!mounted) return;
-      setState(() {
-        _uploads.insert(0, media);
-        _active = null;
-      });
+      _store.add(media);
+      setState(() => _active = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -190,7 +202,7 @@ class _MediaScreenState extends State<MediaScreen> {
     try {
       await _api.deleteMedia(m.id);
       if (!mounted) return;
-      setState(() => _uploads.removeWhere((x) => x.id == m.id));
+      _store.remove(m.id);
     } on ApiError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -289,12 +301,12 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
-  List<MediaFile> get _filtered {
+  List<MediaFile> _filterFor(List<MediaFile> source) {
     return switch (_filter) {
-      _MediaFilter.all => _uploads,
-      _MediaFilter.images => _uploads.where((m) => m.isImage).toList(),
-      _MediaFilter.videos => _uploads.where((m) => m.isVideo).toList(),
-      _MediaFilter.files => _uploads
+      _MediaFilter.all => source,
+      _MediaFilter.images => source.where((m) => m.isImage).toList(),
+      _MediaFilter.videos => source.where((m) => m.isVideo).toList(),
+      _MediaFilter.files => source
           .where((m) => !m.isImage && !m.isVideo && !m.isAudio)
           .toList(),
     };
@@ -308,15 +320,19 @@ class _MediaScreenState extends State<MediaScreen> {
       appBar: const CreamAppBar(
         title: 'Media',
         subtitle: 'Shared in your institution',
+        actions: [NotificationsBell()],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: kAccent,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        onPressed: uploading ? null : _showPickerSheet,
-        icon: const Icon(Icons.upload_file),
-        label: Text('Upload',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120),
+        child: FloatingActionButton.extended(
+          backgroundColor: kAccent,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          onPressed: uploading ? null : _showPickerSheet,
+          icon: const Icon(Icons.upload_file),
+          label: Text('Upload',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        ),
       ),
       body: Container(
         decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
@@ -363,13 +379,17 @@ class _MediaScreenState extends State<MediaScreen> {
               ),
             ]),
           ),
-        Expanded(child: _buildGrid()),
+        Expanded(
+          child: ValueListenableBuilder<List<MediaFile>>(
+            valueListenable: _store.items,
+            builder: (_, all, _) => _buildGrid(_filterFor(all)),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildGrid() {
-    final items = _filtered;
+  Widget _buildGrid(List<MediaFile> items) {
     if (items.isEmpty) {
       return Center(
         child: Padding(
@@ -398,7 +418,7 @@ class _MediaScreenState extends State<MediaScreen> {
       );
     }
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 130),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 12,

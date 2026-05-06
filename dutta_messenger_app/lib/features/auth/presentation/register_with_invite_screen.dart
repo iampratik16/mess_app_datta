@@ -5,9 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../../services/chat_service.dart';
 import '../../../services/push_token_service.dart';
-import '../../home/presentation/home_screen.dart';
+import '../../home/presentation/main_shell.dart';
 import '../data/auth_repository.dart';
 
 /// POST /api/v1/auth/register — complete registration using an invite token.
@@ -74,7 +75,7 @@ class _RegisterWithInviteScreenState extends State<RegisterWithInviteScreen> {
       unawaited(PushTokenService.instance.registerForCurrentUser());
       if (!mounted) return;
       await Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+        MaterialPageRoute(builder: (_) => MainShell(user: user)),
         (route) => false,
       );
     } on ApiError catch (e) {
@@ -95,45 +96,34 @@ class _RegisterWithInviteScreenState extends State<RegisterWithInviteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Register with invite',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Register with invite'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
         child: SafeArea(
+          top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Welcome to DuttaMessenger',
-                      style: GoogleFonts.outfit(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
+                  Text(
+                    'Welcome to Datta Messenger',
+                    style: GoogleFonts.playfairDisplay(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: kInkDark,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     'Paste the invite token from your invitation email and pick '
                     'your password. Direct sign-up is disabled — only invited '
                     'users can join.',
                     style: GoogleFonts.inter(
-                        fontSize: 13, color: Colors.white60),
+                        fontSize: 14, color: kInkMuted, height: 1.4),
                   ),
                   const SizedBox(height: 22),
                   _Field(
@@ -169,7 +159,7 @@ class _RegisterWithInviteScreenState extends State<RegisterWithInviteScreen> {
                     suffix: IconButton(
                       icon: Icon(
                         _obscure ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.white38,
+                        color: kInkSubtle,
                       ),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
@@ -192,30 +182,39 @@ class _RegisterWithInviteScreenState extends State<RegisterWithInviteScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color:
-                            const Color(0xFFFF4757).withValues(alpha: 0.15),
-                        border: Border.all(
-                            color: const Color(0xFFFF4757)
-                                .withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(12),
+                        color: kDangerBg.withValues(alpha: 0.10),
+                        border:
+                            Border.all(color: kDangerBg.withValues(alpha: 0.40)),
                       ),
-                      child: Text(
-                        _error!,
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xFFFF6B7A)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              color: kDangerInk, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _error!,
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: kDangerInk),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                   const SizedBox(height: 22),
                   SizedBox(
-                    height: 50,
+                    height: 54,
                     child: FilledButton(
                       onPressed: _busy ? null : _submit,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF667EEA),
+                        backgroundColor: kAccent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            kAccent.withValues(alpha: 0.45),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: _busy
@@ -225,7 +224,13 @@ class _RegisterWithInviteScreenState extends State<RegisterWithInviteScreen> {
                               child: CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2.5),
                             )
-                          : const Text('Create account & sign in'),
+                          : Text(
+                              'Create account & sign in',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -265,25 +270,15 @@ class _Field extends StatelessWidget {
       validator: validator,
       obscureText: obscure,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        helperText: helper,
-        helperStyle: GoogleFonts.inter(color: Colors.white38, fontSize: 11),
-        labelStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+      cursorColor: kAccentDeep,
+      style: GoogleFonts.inter(color: kInkDark, fontSize: 15),
+      decoration: creamInputDecoration(
+        label: label,
+        prefixIcon: Icon(icon, color: kInkSubtle, size: 20),
         suffixIcon: suffix,
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFF667EEA), width: 1.5),
-        ),
+      ).copyWith(
+        helperText: helper,
+        helperStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 11.5),
       ),
     );
   }

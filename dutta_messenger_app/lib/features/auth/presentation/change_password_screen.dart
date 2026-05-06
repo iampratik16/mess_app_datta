@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../data/auth_api.dart';
 
 /// Form that POSTs /auth/change-password. Requires the current password
@@ -23,6 +24,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _saving = false;
   bool _obscureCurrent = true;
   bool _obscureNew = true;
+  bool _obscureConfirm = true;
   String? _error;
   String? _success;
 
@@ -66,35 +68,38 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Change password',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Change password'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
         child: SafeArea(
+          top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const CreamInfoBanner(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(text: 'Changing your password '),
+                        TextSpan(
+                          text: 'signs you out everywhere else',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        TextSpan(
+                          text: ". You'll need to sign in again on other "
+                              'devices.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const CreamFieldLabel(label: 'Current password'),
+                  const SizedBox(height: 8),
                   _PasswordField(
-                    label: 'Current password',
                     controller: _currentCtrl,
                     obscure: _obscureCurrent,
                     onToggle: () => setState(
@@ -102,9 +107,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
-                  const SizedBox(height: 14),
-                  _PasswordField(
+                  const SizedBox(height: 18),
+                  CreamFieldLabel(
                     label: 'New password',
+                    trailing: Text(
+                      'Minimum 8 characters',
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        color: kInkMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _PasswordField(
                     controller: _newCtrl,
                     obscure: _obscureNew,
                     onToggle: () =>
@@ -116,43 +131,60 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
+                  const CreamFieldLabel(label: 'Confirm new password'),
+                  const SizedBox(height: 8),
                   _PasswordField(
-                    label: 'Confirm new password',
                     controller: _confirmCtrl,
-                    obscure: _obscureNew,
-                    onToggle: () =>
-                        setState(() => _obscureNew = !_obscureNew),
+                    obscure: _obscureConfirm,
+                    onToggle: () => setState(
+                        () => _obscureConfirm = !_obscureConfirm),
                     validator: (v) =>
                         v != _newCtrl.text ? "Doesn't match" : null,
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Text(_error!,
-                        style: GoogleFonts.inter(
-                            color: const Color(0xFFFF6B7A), fontSize: 13)),
+                        style:
+                            GoogleFonts.inter(color: kDangerInk, fontSize: 13)),
                   ],
                   if (_success != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Text(_success!,
                         style: GoogleFonts.inter(
-                            color: const Color(0xFF2ED573), fontSize: 13)),
+                          color: const Color(0xFF3F7A4F),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        )),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                   SizedBox(
-                    height: 48,
+                    height: 56,
                     child: FilledButton(
                       onPressed: _saving ? null : _submit,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF667EEA),
+                        backgroundColor: kAccent,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            kAccent.withValues(alpha: 0.45),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                       child: _saving
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: 22,
+                              height: 22,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2))
-                          : const Text('Update password'),
+                                  color: Colors.white, strokeWidth: 2.4),
+                            )
+                          : Text(
+                              'Update password',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -167,13 +199,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
 class _PasswordField extends StatelessWidget {
   const _PasswordField({
-    required this.label,
     required this.controller,
     required this.obscure,
     required this.onToggle,
     required this.validator,
   });
-  final String label;
   final TextEditingController controller;
   final bool obscure;
   final VoidCallback onToggle;
@@ -181,27 +211,44 @@ class _PasswordField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
-        prefixIcon: const Icon(Icons.lock_outline, color: Colors.white38),
-        suffixIcon: IconButton(
-          icon: Icon(
-            obscure ? Icons.visibility_off : Icons.visibility,
-            color: Colors.white38,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B4A22).withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          onPressed: onToggle,
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        validator: validator,
+        obscureText: obscure,
+        cursorColor: kAccentDeep,
+        style: GoogleFonts.inter(
+          color: kInkDark,
+          fontSize: 16,
+          letterSpacing: 1.2,
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+        decoration: creamInputDecoration(
+          fillColor: Colors.white,
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscure ? Icons.visibility_off : Icons.visibility,
+              color: kInkSubtle,
+            ),
+            onPressed: onToggle,
+          ),
+        ).copyWith(
+          // Inputs in the reference are tall, white, label-less — the
+          // section header above stands in for the floating label.
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );

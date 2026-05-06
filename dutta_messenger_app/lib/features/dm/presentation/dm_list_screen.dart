@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../notifications/presentation/notifications_bell.dart';
+import '../../chat/domain/chat_type.dart';
 import '../../chat/presentation/chat_screen.dart';
 import '../../groups/domain/group_models.dart';
 import '../../users/data/users_api.dart';
 import '../../users/domain/user_models.dart';
 import '../../users/presentation/users_screen.dart';
 import '../data/dm_repository.dart';
-import '../../../core/ui/app_theme.dart';
 
 /// Lists the caller's direct-message conversations. Each row shows the
 /// *other* party — we resolve their profile via /users/{id}. Tapping a row
@@ -91,6 +93,8 @@ class _DmListScreenState extends State<DmListScreen> {
           groupId: e.group.id,
           groupName: title,
           me: widget.me,
+          chatType: ChatType.dm,
+          peer: e.other,
         ),
       ),
     );
@@ -111,17 +115,21 @@ class _DmListScreenState extends State<DmListScreen> {
             onPressed: _load,
             tooltip: 'Refresh',
           ),
+          const NotificationsBell(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: kAccent,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        tooltip: 'New message',
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => UsersScreen(me: widget.me)),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120),
+        child: FloatingActionButton(
+          backgroundColor: kAccent,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          tooltip: 'New message',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => UsersScreen(me: widget.me)),
+          ),
+          child: const Icon(Icons.add, size: 28),
         ),
-        child: const Icon(Icons.add, size: 28),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -186,7 +194,7 @@ class _DmListScreenState extends State<DmListScreen> {
       backgroundColor: kCream,
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(0, 4, 0, 100),
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 130),
         itemCount: _entries.length,
         separatorBuilder: (_, _) => const Divider(
           height: 1,

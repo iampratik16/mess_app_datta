@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
+import '../../../services/chat_service.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../chat/domain/chat_type.dart';
 import '../../chat/presentation/chat_screen.dart';
 import '../../dm/data/dm_repository.dart';
 import '../data/groups_api.dart';
 import '../domain/group_models.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import 'topics_screen.dart';
 import '../../../core/ui/app_theme.dart';
 
@@ -23,11 +28,26 @@ class _GroupsScreenState extends State<GroupsScreen> {
   bool _loading = true;
   String? _error;
   List<Group> _groups = [];
+  StreamSubscription<String>? _membershipSub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    // Live membership updates: when any group the user belongs to gains
+    // or loses a member, refetch the list so the row count reflects
+    // truth without a manual pull-to-refresh.
+    _membershipSub =
+        ChatService.instance.groupMembershipChanged.listen((groupId) {
+      if (!mounted) return;
+      if (_groups.any((g) => g.id == groupId)) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _membershipSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -89,6 +109,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
             groupId: g.id,
             groupName: g.name,
             me: widget.me,
+            chatType: ChatType.group,
           ),
         ),
       );
@@ -110,14 +131,18 @@ class _GroupsScreenState extends State<GroupsScreen> {
             onPressed: _load,
             tooltip: 'Refresh',
           ),
+          const NotificationsBell(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: kAccent,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        onPressed: _createGroupDialog,
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120),
+        child: FloatingActionButton(
+          backgroundColor: kAccent,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          onPressed: _createGroupDialog,
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -142,7 +167,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         ? const _EmptyState()
                         : ListView.separated(
                             padding:
-                                const EdgeInsets.fromLTRB(0, 4, 0, 100),
+                                const EdgeInsets.fromLTRB(0, 4, 0, 130),
                             itemCount: _groups.length,
                             separatorBuilder: (_, _) => const Divider(
                               height: 1,

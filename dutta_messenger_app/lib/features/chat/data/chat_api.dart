@@ -33,15 +33,23 @@ class ChatApi {
     }
   }
 
-  /// GET /chat/conversations/{id}/messages
-  Future<List<Message>> listMessages(String conversationId,
-      {int limit = 50, String? cursor}) async {
+  /// GET /chat/conversations/{id}/messages — newest-first.
+  ///
+  /// Pass [beforeId] (the id of the oldest message currently in local
+  /// state) to page backwards into history. The query param the server
+  /// expects is `before_id`; older builds of this client passed `cursor`
+  /// which the server silently ignored, so paging never actually worked.
+  Future<List<Message>> listMessages(
+    String conversationId, {
+    int limit = 50,
+    String? beforeId,
+  }) async {
     try {
       final r = await _dio.get(
         '/chat/conversations/$conversationId/messages',
         queryParameters: {
           'limit': limit,
-          if (cursor != null) 'cursor': cursor,
+          if (beforeId != null) 'before_id': beforeId,
         },
       );
       final data = r.data['data'];
@@ -59,9 +67,16 @@ class ChatApi {
 
   /// POST /chat/conversations/{id}/messages — sends a text message.
   /// Adds a `client_message_id` and `Idempotency-Key` for safe retries.
+  ///
+  /// `mediaIds` is set when the message re-shares existing vault items
+  /// (Media Vault picker flow). The server uses it as a privacy guard:
+  /// every id must be owned by the sender or the request is rejected
+  /// with 403. Fresh-upload paths can also pass the just-completed
+  /// media id here for consistency.
   Future<Message> sendMessage({
     required String conversationId,
     required String content,
+    List<String>? mediaIds,
   }) async {
     try {
       final idempotencyKey = _uuid.v4();
@@ -70,6 +85,7 @@ class ChatApi {
         data: {
           'content': content,
           'client_message_id': _uuid.v4(),
+          if (mediaIds != null && mediaIds.isNotEmpty) 'media_ids': mediaIds,
         },
         options: Options(headers: {'Idempotency-Key': idempotencyKey}),
       );

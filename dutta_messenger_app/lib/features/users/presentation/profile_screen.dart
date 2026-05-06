@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/auth/auth_events.dart';
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
+import '../../../services/chat_service.dart';
 import '../../acl/data/acl_api.dart';
 import '../../acl/presentation/acl_admin_screen.dart';
 import '../../auth/domain/auth_models.dart';
 import '../../auth/presentation/change_password_screen.dart';
+import '../../auth/presentation/invite_user_screen.dart';
 import '../../media/data/avatar_picker.dart';
 import '../data/users_api.dart';
 import '../domain/user_models.dart';
@@ -31,11 +37,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String>? _permissions;
   bool _loading = true;
   String? _error;
+  StreamSubscription<void>? _roleChangedSub;
 
   @override
   void initState() {
     super.initState();
     _bootstrap();
+    // When another device (e.g. an admin promoting / demoting this
+    // user) rotates roles, the server pushes user.role_changed over WS.
+    // Reload the profile so the permissions list reflects truth without
+    // requiring a sign-out (audit 4.7 / Shreyas feedback #8).
+    _roleChangedSub = ChatService.instance.roleChanged.listen((_) {
+      if (mounted) _bootstrap();
+    });
+  }
+
+  @override
+  void dispose() {
+    _roleChangedSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -69,9 +89,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final updated = await showModalBottomSheet<UserProfile>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1B3A),
+      backgroundColor: kCreamCard,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (_) => _EditProfileSheet(current: current),
     );
@@ -80,311 +100,413 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final me = _me;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Profile',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+  Future<void> _signOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kCreamCard,
+        surfaceTintColor: kCreamCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: kHairline),
+        ),
+        title: Text(
+          'Sign out?',
+          style: GoogleFonts.playfairDisplay(
+            color: kInkDark,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          "You'll be returned to the sign-in screen. "
+          'Push notifications for this device will stop.',
+          style: GoogleFonts.inter(color: kInkMuted, fontSize: 13),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit profile',
-            onPressed: me == null ? null : _edit,
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: kInkMuted),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: kDangerInk,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sign out'),
           ),
         ],
       ),
+    );
+    if (ok != true) return;
+    // Funnel through the global AuthEvents bus so the shell handles WS
+    // disconnect, FCM revoke, token clear, and navigation in exactly the
+    // same code path as session-expired and revoked logouts.
+    AuthEvents.instance.emit(AuthEvent.userLoggedOut);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Settings'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
-        child: SafeArea(child: _buildBody(me)),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
     );
   }
 
-  Widget _buildBody(UserProfile? me) {
+  Widget _buildBody() {
     if (_loading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
+    final me = _me;
     if (_error != null || me == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_error ?? 'Could not load profile.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: const Color(0xFFFF6B7A))),
+          child: Text(
+            _error ?? 'Could not load profile.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(color: kDangerInk),
+          ),
         ),
       );
     }
+
+    final perms = _permissions ?? const <String>[];
+    final canManageAcl = perms.contains('institution.manage_admins');
+    final isAdmin = perms.any((p) => p.startsWith('institution.'));
+    final roleLabel = isAdmin ? 'ADMIN' : 'MEMBER';
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ProfileHeader(user: me),
-          const SizedBox(height: 20),
-          if ((me.bio ?? '').trim().isNotEmpty) ...[
-            _SectionTitle('About'),
-            const SizedBox(height: 8),
-            _BioCard(bio: me.bio!),
-            const SizedBox(height: 20),
-          ],
-          _SectionTitle('Account'),
-          const SizedBox(height: 10),
-          _RowTile(
-            icon: Icons.tune,
-            label: 'Notification & app settings',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
+          _ProfileHeaderCard(
+            user: me,
+            roleLabel: roleLabel,
+            institutionId: widget.me.institutionId,
+            onTap: _edit,
           ),
-          const SizedBox(height: 10),
-          _RowTile(
-            icon: Icons.lock_outline,
-            label: 'Change password',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (_) => const ChangePasswordScreen()),
-            ),
+          const SizedBox(height: 22),
+          const _SectionHeader('ACCOUNT'),
+          _SettingsCard(
+            children: [
+              if (isAdmin)
+                _SettingsTile(
+                  icon: Icons.mark_email_read_outlined,
+                  title: 'Invitations',
+                  subtitle: 'Invite a new user via email',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const InviteUserScreen()),
+                  ),
+                ),
+              _SettingsTile(
+                icon: Icons.lock_outline,
+                title: 'Change password',
+                subtitle: 'Sign out of other sessions',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const ChangePasswordScreen()),
+                ),
+              ),
+              _SettingsTile(
+                icon: Icons.notifications_none,
+                title: 'Notifications',
+                subtitle: 'Push, muted chats',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+              if (canManageAcl)
+                _SettingsTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: 'Roles & permissions',
+                  subtitle: 'Manage who can do what',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AclAdminScreen()),
+                  ),
+                ),
+            ],
           ),
-          if ((_permissions ?? const [])
-              .contains('institution.manage_admins')) ...[
-            const SizedBox(height: 10),
-            _RowTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: 'Manage roles & permissions',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AclAdminScreen()),
+          const SizedBox(height: 22),
+          const _SectionHeader('INSTITUTION'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.business_outlined,
+                title: 'Institution',
+                subtitle: widget.me.institutionId,
+              ),
+              _SettingsTile(
+                icon: Icons.access_time,
+                title: 'About Datta',
+                subtitle: 'Version 1.0.0 · request log',
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              height: 52,
+              child: OutlinedButton(
+                onPressed: _signOut,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kDangerInk,
+                  side: BorderSide(
+                    color: kDangerInk.withValues(alpha: 0.5),
+                    width: 1.4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'Sign out',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
-          ],
-          if ((_permissions ?? const []).isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _SectionTitle('Your permissions (${_permissions!.length})'),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _permissions!
-                  .map((p) => _PermChip(label: p))
-                  .toList(),
-            ),
-          ],
-          const SizedBox(height: 32),
-          Text(
-            'User ID: ${me.id}\nInstitution: ${widget.me.institutionId}',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 10,
-              color: Colors.white24,
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              'Datta · build 7197905 · api/v1',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 11,
+                color: kInkSubtle.withValues(alpha: 0.7),
+              ),
             ),
           ),
-          const SizedBox(height: 24),
         ],
       ),
     );
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.user});
+/// White-card user header. Shows avatar, name (serif), email, and a tiny
+/// caps strip with "{ROLE} · {INSTITUTION}". Tap opens the edit sheet.
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({
+    required this.user,
+    required this.roleLabel,
+    required this.institutionId,
+    required this.onTap,
+  });
+
   final UserProfile user;
+  final String roleLabel;
+  final String institutionId;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.25),
-            ),
-            child: Text(
-              user.initials,
-              style: GoogleFonts.outfit(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+    return Material(
+      color: kCreamCard,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Row(
+            children: [
+              CreamAvatar(
+                seed: user.fullName ?? user.email ?? '?',
+                initials: user.initials,
+                size: 64,
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName ?? '(no name)',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  user.email ?? '',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if ((user.status ?? '').isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.white.withValues(alpha: 0.2),
-                    ),
-                    child: Text(
-                      (user.status ?? '').toUpperCase(),
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.fullName ?? '(no name)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
                       ),
                     ),
-                  ),
-              ],
-            ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user.email ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 13.5,
+                        color: kInkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$roleLabel  ·  ${_shortInstitution(institutionId)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: kAccentDeep,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, color: kInkSubtle),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  String _shortInstitution(String id) {
+    // Truncated UUID is the most useful piece of info we currently have
+    // for the institution. Replace once a name endpoint exists.
+    if (id.length <= 12) return id.toUpperCase();
+    return '${id.substring(0, 8).toUpperCase()}…';
+  }
 }
 
-class _BioCard extends StatelessWidget {
-  const _BioCard({required this.bio});
-  final String bio;
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.text);
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 16, 8),
       child: Text(
-        bio,
+        text,
         style: GoogleFonts.inter(
-            fontSize: 13, color: Colors.white.withValues(alpha: 0.8)),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: kInkMuted,
+          letterSpacing: 1.6,
+        ),
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
+/// Rounded cream container that wraps a vertical stack of [_SettingsTile]s
+/// with a thin hairline divider between them.
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.children});
+  final List<Widget> children;
+
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: GoogleFonts.outfit(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Colors.white70,
-          letterSpacing: 1.2,
-        ),
-      );
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      rows.add(children[i]);
+      if (i < children.length - 1) {
+        rows.add(const Padding(
+          padding: EdgeInsets.only(left: 76),
+          child: Divider(height: 1, thickness: 1, color: kHairline),
+        ));
+      }
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: kCreamCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kHairline),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(children: rows),
+      ),
+    );
+  }
 }
 
-class _RowTile extends StatelessWidget {
-  const _RowTile({required this.icon, required this.label, this.onTap});
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
   final IconData icon;
-  final String label;
+  final String title;
+  final String subtitle;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
+        splashColor: kAccent.withValues(alpha: 0.08),
+        highlightColor: kAccent.withValues(alpha: 0.04),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: const Color(0xFF667EEA).withValues(alpha: 0.2),
+                  color: kCreamField,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: kHairline),
                 ),
-                child: Icon(icon, color: const Color(0xFF8A9CF5), size: 18),
+                child: Icon(icon, color: kInkDark, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(label,
-                    style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: kInkMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white54),
+              if (onTap != null)
+                const Icon(Icons.chevron_right, color: kInkSubtle),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PermChip extends StatelessWidget {
-  const _PermChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFF667EEA).withValues(alpha: 0.15),
-        border: Border.all(
-            color: const Color(0xFF667EEA).withValues(alpha: 0.35)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.jetBrainsMono(
-            fontSize: 11, color: const Color(0xFFB3BCF5)),
       ),
     );
   }
@@ -467,106 +589,175 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     }
   }
 
+  InputDecoration _fieldDecoration(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.inter(color: kInkSubtle, fontSize: 13),
+        floatingLabelStyle:
+            GoogleFonts.inter(color: kAccentDeep, fontSize: 13),
+        filled: true,
+        fillColor: kCreamField,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: kHairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: kAccent, width: 1.5),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        top: 16,
+        top: 14,
         left: 20,
         right: 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Edit profile',
-              style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
-          const SizedBox(height: 14),
-          _AvatarPickerRow(
-            currentUrl: _avatarUrl,
-            uploading: _uploadingAvatar,
-            onPick: _pickAvatar,
-          ),
-          const SizedBox(height: 14),
-          _Field(
-            label: 'Full name',
-            controller: _nameCtrl,
-          ),
-          const SizedBox(height: 12),
-          _Field(
-            label: 'Bio',
-            controller: _bioCtrl,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 12),
-          _Field(
-            label: 'Phone number (optional)',
-            controller: _phoneCtrl,
-          ),
-          const SizedBox(height: 14),
-          Text('Status',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: Colors.white54)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: _statusChoices.map((s) {
-              final selected = s == _status;
-              return ChoiceChip(
-                label: Text(s),
-                selected: selected,
-                labelStyle: GoogleFonts.inter(
-                  color: selected ? Colors.white : Colors.white70,
-                  fontSize: 12,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: kHairline,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                selectedColor: const Color(0xFF667EEA),
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                onSelected: (_) => setState(() => _status = s),
-              );
-            }).toList(),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 10),
-            Text(_error!,
-                style: GoogleFonts.inter(
-                    color: const Color(0xFFFF6B7A), fontSize: 12)),
-          ],
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 46,
-            child: FilledButton(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF667EEA)),
-              child: _saving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('Save'),
+              ),
             ),
-          ),
-        ],
+            Text(
+              'Edit profile',
+              style: GoogleFonts.playfairDisplay(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: kInkDark,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _AvatarPickerRow(
+              currentUrl: _avatarUrl,
+              fallbackInitials: widget.current.initials,
+              fallbackSeed:
+                  widget.current.fullName ?? widget.current.email ?? '?',
+              uploading: _uploadingAvatar,
+              onPick: _pickAvatar,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _nameCtrl,
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Full name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _bioCtrl,
+              maxLines: 3,
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Bio'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _phoneCtrl,
+              cursorColor: kAccentDeep,
+              style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+              decoration: _fieldDecoration('Phone number (optional)'),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Status',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: kInkMuted,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _statusChoices.map((s) {
+                final selected = s == _status;
+                return ChoiceChip(
+                  label: Text(s),
+                  selected: selected,
+                  showCheckmark: false,
+                  labelStyle: GoogleFonts.inter(
+                    color: selected ? kCream : kInkDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  selectedColor: kAccent,
+                  backgroundColor: kCreamField,
+                  side: BorderSide(
+                    color: selected ? kAccent : kHairline,
+                  ),
+                  onSelected: (_) => setState(() => _status = s),
+                );
+              }).toList(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!,
+                  style: GoogleFonts.inter(color: kDangerInk, fontSize: 12)),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 50,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: kAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        'Save',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Avatar slot used inside the profile + group edit sheets. Tapping it
-/// opens the gallery picker and uploads via [AvatarPicker]; the parent
-/// rebuilds with the new presigned URL.
+/// Avatar slot used inside the profile edit sheet. Tapping opens the
+/// gallery picker; the parent rebuilds with the new presigned URL.
 class _AvatarPickerRow extends StatelessWidget {
   const _AvatarPickerRow({
     required this.currentUrl,
+    required this.fallbackInitials,
+    required this.fallbackSeed,
     required this.uploading,
     required this.onPick,
   });
   final String? currentUrl;
+  final String fallbackInitials;
+  final String fallbackSeed;
   final bool uploading;
   final VoidCallback onPick;
 
@@ -581,33 +772,31 @@ class _AvatarPickerRow extends StatelessWidget {
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
-              Container(
-                width: 72,
-                height: 72,
-                clipBehavior: Clip.antiAlias,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+              if (hasUrl)
+                ClipOval(
+                  child: Image.network(
+                    currentUrl!,
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => CreamAvatar(
+                      seed: fallbackSeed,
+                      initials: fallbackInitials,
+                      size: 72,
+                    ),
                   ),
+                )
+              else
+                CreamAvatar(
+                  seed: fallbackSeed,
+                  initials: fallbackInitials,
+                  size: 72,
                 ),
-                child: hasUrl
-                    ? Image.network(
-                        currentUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Center(
-                          child: Icon(Icons.person,
-                              color: Colors.white70, size: 32),
-                        ),
-                      )
-                    : const Icon(Icons.person,
-                        color: Colors.white70, size: 32),
-              ),
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF667EEA),
+                  color: kAccentDeep,
                 ),
                 child: uploading
                     ? const SizedBox(
@@ -616,8 +805,7 @@ class _AvatarPickerRow extends StatelessWidget {
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2),
                       )
-                    : const Icon(Icons.edit,
-                        color: Colors.white, size: 14),
+                    : const Icon(Icons.edit, color: Colors.white, size: 14),
               ),
             ],
           ),
@@ -630,7 +818,7 @@ class _AvatarPickerRow extends StatelessWidget {
                 : hasUrl
                     ? 'Tap the avatar to change'
                     : 'Tap to set a profile photo',
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.white60),
+            style: GoogleFonts.inter(fontSize: 13, color: kInkMuted),
           ),
         ),
       ],
@@ -638,32 +826,3 @@ class _AvatarPickerRow extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.label,
-    required this.controller,
-    this.maxLines = 1,
-  });
-  final String label;
-  final TextEditingController controller;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-}

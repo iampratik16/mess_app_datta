@@ -4,7 +4,7 @@
          release APKs can't reach the API at all. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="dutta_messenger_app"
+        android:label="Datta Messenger"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

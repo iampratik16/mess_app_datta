@@ -2,11 +2,13 @@
 class LoginResponse {
   final String accessToken;
   final String refreshToken;
+  final int expiresInSeconds;
   final AuthUser user;
 
   const LoginResponse({
     required this.accessToken,
     required this.refreshToken,
+    required this.expiresInSeconds,
     required this.user,
   });
 
@@ -16,6 +18,9 @@ class LoginResponse {
     return LoginResponse(
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
+      // Older builds didn't return this — fall back to 30 min so the
+      // proactive-refresh timer still fires on a sane cadence.
+      expiresInSeconds: (data['expires_in_seconds'] as int?) ?? 30 * 60,
       user: AuthUser.fromJson(data['user'] as Map<String, dynamic>),
     );
   }
@@ -85,14 +90,20 @@ class InviteResponse {
 class TokenPair {
   final String accessToken;
   final String refreshToken;
+  final int expiresInSeconds;
 
-  const TokenPair({required this.accessToken, required this.refreshToken});
+  const TokenPair({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.expiresInSeconds,
+  });
 
   factory TokenPair.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>;
     return TokenPair(
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
+      expiresInSeconds: (data['expires_in_seconds'] as int?) ?? 30 * 60,
     );
   }
 }

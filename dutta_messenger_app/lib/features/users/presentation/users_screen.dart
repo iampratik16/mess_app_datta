@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/errors/api_error.dart';
 import '../../auth/domain/auth_models.dart';
+import '../../chat/domain/chat_type.dart';
 import '../../chat/presentation/chat_screen.dart';
 import '../../dm/data/dm_repository.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import '../data/users_api.dart';
 import '../domain/user_models.dart';
 import '../../../core/ui/app_theme.dart';
@@ -51,6 +53,8 @@ class _UsersScreenState extends State<UsersScreen> {
             groupId: group.id,
             groupName: target.fullName ?? target.email ?? 'Direct message',
             me: widget.me,
+            chatType: ChatType.dm,
+            peer: target,
           ),
         ),
       );
@@ -126,7 +130,10 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kCream,
-      appBar: const CreamAppBar(title: 'People'),
+      appBar: const CreamAppBar(
+        title: 'People',
+        actions: [NotificationsBell()],
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -204,7 +211,7 @@ class _UsersScreenState extends State<UsersScreen> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
       itemCount: _results.length,
       separatorBuilder: (_, _) => const Divider(
         height: 1,
