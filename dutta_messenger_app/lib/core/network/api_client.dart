@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../auth/auth_events.dart';
+import '../auth/auth_session.dart';
 import '../config/app_config.dart';
 import '../errors/api_error.dart';
 import '../storage/secure_storage.dart';
@@ -36,10 +38,11 @@ class ApiClient {
   Dio get dio => _dio;
 }
 
-/// Attaches JWT to every request. Handles 401 by refreshing token once.
+/// Attaches JWT to every request. Handles 401 by delegating to
+/// [AuthSession.refresh] (which is also driven by the proactive
+/// expiry timer and which broadcasts to WebSocket listeners).
 class _AuthInterceptor extends Interceptor {
   final Dio _dio;
-  bool _isRefreshing = false;
 
   _AuthInterceptor(this._dio);
 
@@ -60,38 +63,39 @@ class _AuthInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    // Auto-refresh on 401 (token expired)
-    if (err.response?.statusCode == 401 && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        final refreshToken = await SecureTokenStorage.getRefreshToken();
-        final accessToken = await SecureTokenStorage.getAccessToken();
-        if (refreshToken != null && accessToken != null) {
-          final response = await _dio.post(
-            '/auth/refresh',
-            data: {'refresh_token': refreshToken},
-            options: Options(
-              headers: {'Authorization': 'Bearer $accessToken'},
-            ),
-          );
-          final data = response.data['data'];
-          await SecureTokenStorage.saveTokens(
-            accessToken: data['access_token'] as String,
-            refreshToken: data['refresh_token'] as String,
-          );
-          // Retry original request
+    if (err.response?.statusCode == 401) {
+      final ok = await AuthSession.instance.refresh();
+      if (ok) {
+        final newToken = await SecureTokenStorage.getAccessToken();
+        if (newToken != null) {
           final retryOptions = err.requestOptions;
-          retryOptions.headers['Authorization'] =
-              'Bearer ${data['access_token']}';
-          final retryResponse = await _dio.fetch(retryOptions);
-          handler.resolve(retryResponse);
-          return;
+          retryOptions.headers['Authorization'] = 'Bearer $newToken';
+          try {
+            final retryResponse = await _dio.fetch(retryOptions);
+            handler.resolve(retryResponse);
+            return;
+          } catch (_) {
+            // Fall through to surface the original error.
+          }
         }
-      } catch (_) {
-        // Refresh failed — clear tokens, user must log in again
+      } else {
+        // Refresh terminally failed — clear tokens, cancel the
+        // proactive timer, and let the app shell tear the rest down
+        // (WS, FCM, navigation, toast) via the AuthEvents bus.
         await SecureTokenStorage.clearAll();
-      } finally {
-        _isRefreshing = false;
+        AuthSession.instance.cancel();
+        AuthEvents.instance.emit(AuthEvent.sessionExpired);
+      }
+    } else if (err.response?.statusCode == 403) {
+      // Most 403s are feature-level "this user can't do that" — surface
+      // them as normal errors. Only the codes in [sessionEndingForbiddenCodes]
+      // mean the account itself is gone, in which case treat as a forced
+      // logout.
+      final code = ApiError.fromDioException(err).code;
+      if (sessionEndingForbiddenCodes.contains(code)) {
+        await SecureTokenStorage.clearAll();
+        AuthSession.instance.cancel();
+        AuthEvents.instance.emit(AuthEvent.forbidden);
       }
     }
     handler.next(DioException(

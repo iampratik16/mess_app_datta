@@ -56,6 +56,33 @@ class MediaApi {
     }
   }
 
+  /// GET /media/ — the caller's own vault, newest-first. Server scopes
+  /// to (institution_id, uploader_id) so this endpoint can never leak
+  /// another user's media; treat the result as authoritative.
+  ///
+  /// Pass [beforeId] for cursor-paginated history.
+  Future<List<MediaFile>> listVault({int limit = 50, String? beforeId}) async {
+    try {
+      final r = await _dio.get(
+        '/media/',
+        queryParameters: {
+          'limit': limit,
+          if (beforeId != null) 'before_id': beforeId,
+        },
+      );
+      final data = r.data['data'];
+      if (data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(MediaFile.fromJson)
+            .toList();
+      }
+      return const [];
+    } on DioException catch (e) {
+      throw ApiError.fromDioException(e);
+    }
+  }
+
   /// GET /media/{id} — metadata.
   Future<MediaFile> getMedia(String mediaId) async {
     try {
@@ -67,11 +94,25 @@ class MediaApi {
   }
 
   /// GET /media/{id}/download — presigned GET URL (expires in ~1 h).
-  /// Do not cache the URL itself — refetch when you need to render.
+  /// Do not cache the URL itself at the global state layer — keep it
+  /// widget-local. Use [getDownloadInfo] when you need the TTL too
+  /// (Prompt 11 defensive refetch).
   Future<String> getDownloadUrl(String mediaId) async {
+    final info = await getDownloadInfo(mediaId);
+    return info.url;
+  }
+
+  /// GET /media/{id}/download with TTL — used by [MediaUrlResolver]
+  /// to pre-emptively refetch before the URL expires.
+  Future<MediaDownloadInfo> getDownloadInfo(String mediaId) async {
     try {
       final r = await _dio.get('/media/$mediaId/download');
-      return r.data['data']['download_url'] as String;
+      final data = r.data['data'] as Map<String, dynamic>;
+      final expiresIn = (data['expires_in'] as num?)?.toInt() ?? 3600;
+      return MediaDownloadInfo(
+        url: data['download_url'] as String,
+        expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+      );
     } on DioException catch (e) {
       throw ApiError.fromDioException(e);
     }

@@ -1,3 +1,4 @@
+import '../../../core/auth/auth_session.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/errors/api_error.dart';
 import 'auth_api.dart';
@@ -24,6 +25,7 @@ class AuthRepository {
       institutionId: response.user.institutionId,
       userId: response.user.id,
     );
+    AuthSession.instance.scheduleProactiveRefresh(response.expiresInSeconds);
     return response.user;
   }
 
@@ -51,8 +53,12 @@ class AuthRepository {
     return login(email: email, password: password);
   }
 
-  /// Logout — clear all stored tokens.
-  Future<void> logout() => SecureTokenStorage.clearAll();
+  /// Logout — clear all stored tokens and stop the proactive refresh
+  /// timer so a logged-out app doesn't keep poking `/auth/refresh`.
+  Future<void> logout() async {
+    AuthSession.instance.cancel();
+    await SecureTokenStorage.clearAll();
+  }
 
   /// Check if user is currently logged in.
   Future<bool> isLoggedIn() async {

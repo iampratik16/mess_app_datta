@@ -24,6 +24,12 @@ dependencies:
   url_launcher: ^6.2.5
   flutter_linkify: ^6.0.0
   linkify: ^5.0.0
+  # Inline video + audio playback inside chat bubbles. video_player is
+  # the official Flutter team package; chewie wraps it with controls.
+  # just_audio handles the audio stream + scrubber.
+  video_player: ^2.10.0
+  chewie: ^1.11.3
+  just_audio: ^0.10.4
   # FCM push tokens — POST /notifications/tokens. Init is wrapped in
   # try/catch so the app keeps working when GoogleService-Info.plist /
   # google-services.json have not been provisioned yet.
@@ -36,8 +42,21 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   json_serializable: ^6.7.1
   build_runner: ^2.4.8
+  # Generates per-platform launcher icons from a single source image.
+  # Configured via the `flutter_launcher_icons:` block below.
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/datta_uni_logo.jpg"
+  background_color_ios: "#F6ECE0"
+  adaptive_icon_background: "#F6ECE0"
+  adaptive_icon_foreground: "assets/images/datta_uni_logo.jpg"
 
 flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/images/

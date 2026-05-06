@@ -12,19 +12,19 @@ import 'media_api.dart';
 /// for a 422 from the server.
 class MediaLimits {
   static const image = _Category(
-    maxBytes: 10 * 1024 * 1024,
+    maxBytes: 1024 * 1024 * 1024,
     mimes: {'image/jpeg', 'image/png', 'image/gif', 'image/webp'},
   );
   static const video = _Category(
-    maxBytes: 100 * 1024 * 1024,
+    maxBytes: 1024 * 1024 * 1024,
     mimes: {'video/mp4', 'video/quicktime', 'video/webm'},
   );
   static const audio = _Category(
-    maxBytes: 20 * 1024 * 1024,
+    maxBytes: 1024 * 1024 * 1024,
     mimes: {'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/aac'},
   );
   static const document = _Category(
-    maxBytes: 50 * 1024 * 1024,
+    maxBytes: 1024 * 1024 * 1024,
     mimes: {
       'application/pdf',
       'application/msword',
@@ -39,7 +39,7 @@ class MediaLimits {
   };
 
   /// Hard ceiling regardless of category.
-  static const hardMax = 100 * 1024 * 1024;
+  static const hardMax = 1024 * 1024 * 1024;
 
   /// Returns `null` if OK, else a human-readable error string.
   static String? validate({

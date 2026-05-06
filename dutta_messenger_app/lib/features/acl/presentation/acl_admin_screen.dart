@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../../users/data/users_api.dart';
 import '../../users/domain/user_models.dart';
 import '../data/acl_api.dart';
@@ -100,10 +102,8 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E1B3A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (_) => _UserRolesSheet(user: user, allRoles: _roles),
     );
   }
@@ -111,26 +111,11 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Roles & permissions',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Roles & permissions'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
-        child: SafeArea(child: _buildBody()),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
+        child: SafeArea(top: false, child: _buildBody()),
       ),
     );
   }
@@ -138,7 +123,7 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
   Widget _buildBody() {
     if (_loadingRoles) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_error != null) {
       return Center(
@@ -146,8 +131,7 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
           padding: const EdgeInsets.all(24),
           child: Text(_error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                  color: const Color(0xFFFF6B7A), fontSize: 13)),
+              style: GoogleFonts.inter(color: kDangerInk, fontSize: 13)),
         ),
       );
     }
@@ -167,21 +151,27 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: Colors.white.withValues(alpha: 0.06),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          color: kCreamCard,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kHairline),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Available roles (${_roles.length})',
-                style: GoogleFonts.inter(
-                    fontSize: 11, color: Colors.white54)),
+            Text(
+              'Available roles (${_roles.length})',
+              style: GoogleFonts.inter(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: kInkMuted,
+                letterSpacing: 1.2,
+              ),
+            ),
             const SizedBox(height: 10),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _roles.map((r) => _RoleChip(role: r)).toList(),
+              spacing: 8,
+              runSpacing: 8,
+              children: _roles.map((r) => _RoleCatalogChip(role: r)).toList(),
             ),
           ],
         ),
@@ -195,19 +185,11 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
       child: TextField(
         controller: _searchCtrl,
         onChanged: _onQueryChanged,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          hintText: 'Search a user to manage their roles',
-          hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
-          filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.07),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(24),
-            borderSide: BorderSide.none,
-          ),
+        cursorColor: kAccentDeep,
+        style: GoogleFonts.inter(color: kInkDark, fontSize: 14),
+        decoration: creamInputDecoration(
+          hint: 'Search a user to manage their roles',
+          prefixIcon: const Icon(Icons.search, color: kInkSubtle),
         ),
       ),
     );
@@ -216,71 +198,72 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
   Widget _buildUsersList() {
     if (_loadingUsers && _users.isEmpty) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.white70));
+          child: CircularProgressIndicator(color: kAccentDeep));
     }
     if (_users.isEmpty) {
       return Center(
         child: Text('No users match',
-            style: GoogleFonts.inter(color: Colors.white54, fontSize: 13)),
+            style: GoogleFonts.inter(color: kInkMuted, fontSize: 14)),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
       itemCount: _users.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => kListDivider,
       itemBuilder: (ctx, i) {
         final u = _users[i];
         return Material(
-          color: Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14),
+          color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
             onTap: () => _openUserSheet(u),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.12)),
-              ),
+            splashColor: kAccent.withValues(alpha: 0.08),
+            highlightColor: kAccent.withValues(alpha: 0.04),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
-                    ),
-                    child: Text(u.initials,
-                        style: GoogleFonts.outfit(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                  CreamAvatar(
+                    seed: u.fullName ?? u.email ?? '?',
+                    initials: u.initials,
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(u.fullName ?? '(no name)',
-                            style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white)),
+                        Text(
+                          u.fullName ?? '(no name)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: kInkDark,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(u.email ?? u.id,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
-                                fontSize: 11, color: Colors.white54)),
+                        Text(
+                          u.email ?? u.id,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: kInkMuted),
+                        ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.shield_outlined, color: Colors.white54),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: kAccent.withValues(alpha: 0.12),
+                    ),
+                    child: const Icon(Icons.shield_outlined,
+                        color: kAccentDeep, size: 18),
+                  ),
                 ],
               ),
             ),
@@ -291,36 +274,39 @@ class _AclAdminScreenState extends State<AclAdminScreen> {
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  const _RoleChip({required this.role});
+/// Role catalog chip — system roles get an amber lock badge, custom roles
+/// get the muted info tone.
+class _RoleCatalogChip extends StatelessWidget {
+  const _RoleCatalogChip({required this.role});
   final AclRole role;
+
   @override
   Widget build(BuildContext context) {
-    final color =
-        role.isSystem ? const Color(0xFFF59E0B) : const Color(0xFF8A9CF5);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: color.withValues(alpha: 0.15),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (role.isSystem) ...[
-            const Icon(Icons.lock_outline,
-                size: 11, color: Color(0xFFF59E0B)),
+    if (role.isSystem) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: kAccent.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 12, color: kAccentDeep),
             const SizedBox(width: 4),
-          ],
-          Text(role.name,
+            Text(
+              role.name,
               style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color)),
-        ],
-      ),
-    );
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: kAccentDeep,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return CreamTag(label: role.name, tone: CreamTagTone.info);
   }
 }
 
@@ -391,7 +377,7 @@ class _UserRolesSheetState extends State<_UserRolesSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFFF4757),
+          backgroundColor: kDangerInk,
           content: Text(assigned
               ? 'Revoke failed: ${e.message}'
               : 'Assign failed: ${e.message}'),
@@ -404,91 +390,114 @@ class _UserRolesSheetState extends State<_UserRolesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: bottom),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.85,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _UserHeader(user: widget.user),
-              const SizedBox(height: 16),
-              Text('Roles',
-                  style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(
-                      child:
-                          CircularProgressIndicator(color: Colors.white70)),
-                )
-              else if (_error != null)
-                Text(_error!,
-                    style: GoogleFonts.inter(
-                        color: const Color(0xFFFF6B7A), fontSize: 13))
-              else
-                Expanded(
-                  child: ListView(
-                    children: [
-                      ...widget.allRoles.map((r) {
-                        final on = _assignedRoleIds.contains(r.id);
-                        final busy = _busyRoleIds.contains(r.id);
-                        return _RoleToggleTile(
-                          role: r,
-                          assigned: on,
-                          busy: busy,
-                          onToggle: () => _toggle(r),
-                        );
-                      }),
-                      const SizedBox(height: 18),
-                      Text('Effective permissions (${_permissions.length})',
-                          style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 8),
-                      if (_permissions.isEmpty)
-                        Text('None',
-                            style: GoogleFonts.inter(
-                                fontSize: 12, color: Colors.white54))
-                      else
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: _permissions
-                              .map((p) => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      borderRadius:
-                                          BorderRadius.circular(20),
-                                      color: const Color(0xFF667EEA)
-                                          .withValues(alpha: 0.15),
-                                      border: Border.all(
-                                          color: const Color(0xFF667EEA)
-                                              .withValues(alpha: 0.35)),
-                                    ),
-                                    child: Text(p,
-                                        style: GoogleFonts.jetBrainsMono(
-                                            fontSize: 10,
-                                            color:
-                                                const Color(0xFFB3BCF5))),
-                                  ))
-                              .toList(),
-                        ),
-                      const SizedBox(height: 8),
-                    ],
+        height: MediaQuery.of(context).size.height * 0.82,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    kCream.withValues(alpha: 0.78),
+                    kCreamDeep.withValues(alpha: 0.82),
+                  ],
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.55),
                   ),
                 ),
-            ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: kInkSubtle.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    _UserHeader(user: widget.user),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Roles',
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_loading)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: kAccentDeep),
+                        ),
+                      )
+                    else if (_error != null)
+                      Text(_error!,
+                          style: GoogleFonts.inter(
+                              color: kDangerInk, fontSize: 13))
+                    else
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            ...widget.allRoles.map((r) {
+                              final on = _assignedRoleIds.contains(r.id);
+                              final busy = _busyRoleIds.contains(r.id);
+                              return _RoleToggleTile(
+                                role: r,
+                                assigned: on,
+                                busy: busy,
+                                onToggle: () => _toggle(r),
+                              );
+                            }),
+                            const SizedBox(height: 18),
+                            Text(
+                              'Effective permissions (${_permissions.length})',
+                              style: GoogleFonts.playfairDisplay(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: kInkDark,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            if (_permissions.isEmpty)
+                              Text('None',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13, color: kInkMuted))
+                            else
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _permissions
+                                    .map((p) => _PermissionChip(label: p))
+                                    .toList(),
+                              ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -504,35 +513,33 @@ class _UserHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-            ),
-          ),
-          child: Text(user.initials,
-              style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700)),
+        CreamAvatar(
+          seed: user.fullName ?? user.email ?? '?',
+          initials: user.initials,
+          size: 56,
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(user.fullName ?? '(no name)',
-                  style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700)),
-              Text(user.email ?? user.id,
-                  style: GoogleFonts.inter(
-                      color: Colors.white54, fontSize: 12)),
+              Text(
+                user.fullName ?? '(no name)',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: kInkDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                user.email ?? user.id,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(color: kInkMuted, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -556,25 +563,40 @@ class _RoleToggleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
         color: assigned
-            ? const Color(0xFF667EEA).withValues(alpha: 0.18)
-            : Colors.white.withValues(alpha: 0.04),
+            ? kAccent.withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: assigned
-                ? const Color(0xFF667EEA).withValues(alpha: 0.35)
-                : Colors.white.withValues(alpha: 0.10)),
+          color: assigned
+              ? kAccent.withValues(alpha: 0.55)
+              : Colors.white.withValues(alpha: 0.65),
+          width: assigned ? 1.5 : 1,
+        ),
       ),
       child: Row(
         children: [
-          Icon(role.isSystem ? Icons.lock_outline : Icons.shield_outlined,
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: role.isSystem
+                  ? kAccent.withValues(alpha: 0.18)
+                  : const Color(0xFF4F6E7B).withValues(alpha: 0.18),
+            ),
+            child: Icon(
+              role.isSystem ? Icons.lock_outline : Icons.shield_outlined,
               size: 18,
               color: role.isSystem
-                  ? const Color(0xFFF59E0B)
-                  : const Color(0xFF8A9CF5)),
+                  ? kAccentDeep
+                  : const Color(0xFF3A5460),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -582,13 +604,13 @@ class _RoleToggleTile extends StatelessWidget {
               children: [
                 Text(role.name,
                     style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark)),
                 if ((role.description ?? '').isNotEmpty)
                   Text(role.description!,
                       style: GoogleFonts.inter(
-                          fontSize: 11, color: Colors.white54)),
+                          fontSize: 12.5, color: kInkMuted)),
               ],
             ),
           ),
@@ -597,16 +619,40 @@ class _RoleToggleTile extends StatelessWidget {
               width: 22,
               height: 22,
               child: CircularProgressIndicator(
-                  color: Colors.white70, strokeWidth: 2),
+                  color: kAccentDeep, strokeWidth: 2),
             )
           else
             Switch(
               value: assigned,
               onChanged: (_) => onToggle(),
               activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF667EEA),
+              activeTrackColor: kAccent,
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: kInkSubtle.withValues(alpha: 0.35),
+              trackOutlineColor:
+                  WidgetStateProperty.all(Colors.transparent),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _PermissionChip extends StatelessWidget {
+  const _PermissionChip({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: kAccent.withValues(alpha: 0.12),
+        border: Border.all(color: kAccent.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.jetBrainsMono(fontSize: 11, color: kAccentDeep),
       ),
     );
   }

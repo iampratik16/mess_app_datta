@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/errors/api_error.dart';
+import '../../../core/ui/app_theme.dart';
 import '../data/auth_api.dart';
 
 /// POST /api/v1/auth/institutions — multi-tenant bootstrap. Creates a new
@@ -80,28 +81,14 @@ class _CreateInstitutionScreenState extends State<CreateInstitutionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C29),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Create institution',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-      ),
+      backgroundColor: kCream,
+      appBar: const CreamAppBar(title: 'Create institution'),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0F0C29),
-              Color(0xFF302B63),
-              Color(0xFF24243E),
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: kCreamBackgroundGradient),
         child: SafeArea(
+          top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: _created != null
                 ? _SuccessCard(
                     institution: _created!,
@@ -120,16 +107,20 @@ class _CreateInstitutionScreenState extends State<CreateInstitutionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Bootstrap a new tenant',
-              style: GoogleFonts.outfit(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
+          Text(
+            'Bootstrap a new tenant',
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: kInkDark,
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
             'Each institution is fully isolated. After creation an admin '
             'with seeded credentials can sign in and start inviting users.',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white60),
+            style: GoogleFonts.inter(
+                fontSize: 14, color: kInkMuted, height: 1.4),
           ),
           const SizedBox(height: 22),
           _Field(
@@ -153,23 +144,28 @@ class _CreateInstitutionScreenState extends State<CreateInstitutionScreen> {
             icon: Icons.alternate_email,
           ),
           const SizedBox(height: 18),
-          Text('Subscription tier',
-              style: GoogleFonts.inter(
-                  fontSize: 12, color: Colors.white54)),
+          const CreamFieldLabel(label: 'Subscription tier'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: _tiers.map((t) {
               final selected = t == _tier;
               return ChoiceChip(
                 label: Text(t),
                 selected: selected,
+                showCheckmark: false,
+                avatar: selected
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
                 labelStyle: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: selected ? Colors.white : Colors.white70,
+                  fontSize: 13,
+                  color: selected ? kCream : kInkDark,
+                  fontWeight: FontWeight.w700,
                 ),
-                selectedColor: const Color(0xFF667EEA),
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                selectedColor: kAccent,
+                backgroundColor: kCreamField,
+                side: BorderSide(color: selected ? kAccent : kHairline),
                 onSelected: (_) => setState(() => _tier = t),
               );
             }).toList(),
@@ -217,28 +213,37 @@ class _CreateInstitutionScreenState extends State<CreateInstitutionScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: const Color(0xFFFF4757).withValues(alpha: 0.15),
-                border: Border.all(
-                    color:
-                        const Color(0xFFFF4757).withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(12),
+                color: kDangerBg.withValues(alpha: 0.10),
+                border: Border.all(color: kDangerBg.withValues(alpha: 0.40)),
               ),
-              child: Text(
-                _error!,
-                style: GoogleFonts.inter(
-                    fontSize: 12, color: const Color(0xFFFF6B7A)),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline,
+                      color: kDangerInk, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style:
+                          GoogleFonts.inter(fontSize: 13, color: kDangerInk),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
           const SizedBox(height: 22),
           SizedBox(
-            height: 50,
+            height: 54,
             child: FilledButton(
               onPressed: _busy ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF667EEA),
+                backgroundColor: kAccent,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: kAccent.withValues(alpha: 0.45),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: _busy
@@ -248,7 +253,13 @@ class _CreateInstitutionScreenState extends State<CreateInstitutionScreen> {
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5),
                     )
-                  : const Text('Create institution'),
+                  : Text(
+                      'Create institution',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -273,8 +284,9 @@ class _SuccessCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2ED573), Color(0xFF27AE60)],
+            color: const Color(0xFFDDEBE0),
+            border: Border.all(
+              color: const Color(0xFF6BAE5E).withValues(alpha: 0.6),
             ),
           ),
           child: Column(
@@ -282,61 +294,90 @@ class _SuccessCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.check_circle_outline,
-                      color: Colors.white, size: 28),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF6BAE5E).withValues(alpha: 0.20),
+                    ),
+                    child: const Icon(Icons.check_circle_outline,
+                        color: Color(0xFF3F7A4F), size: 20),
+                  ),
                   const SizedBox(width: 10),
-                  Text('Institution created',
-                      style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
+                  Expanded(
+                    child: Text(
+                      'Institution created',
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: kInkDark,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(name,
-                  style: GoogleFonts.inter(
-                      fontSize: 14, color: Colors.white)),
+              const SizedBox(height: 8),
+              Text(
+                name,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: kInkDark,
+                ),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            color: Colors.white.withValues(alpha: 0.06),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            color: kCreamCard,
+            border: Border.all(color: kHairline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Institution ID',
-                  style: GoogleFonts.inter(
-                      fontSize: 11, color: Colors.white54)),
-              const SizedBox(height: 4),
-              SelectableText(id,
-                  style: GoogleFonts.jetBrainsMono(
-                      fontSize: 12, color: Colors.white)),
+              const CreamFieldLabel(label: 'Institution ID'),
+              const SizedBox(height: 6),
+              SelectableText(
+                id,
+                style: GoogleFonts.jetBrainsMono(
+                    fontSize: 12.5, color: kInkDark),
+              ),
               const SizedBox(height: 14),
               Text(
                 'Next steps: an admin user must be seeded server-side, then '
                 'sign in here and invite the first members from the home '
                 'screen.',
                 style: GoogleFonts.inter(
-                    fontSize: 12, color: Colors.white60),
+                    fontSize: 13, color: kInkMuted, height: 1.4),
               ),
             ],
           ),
         ),
         const SizedBox(height: 20),
         SizedBox(
-          height: 48,
+          height: 54,
           child: FilledButton(
             onPressed: onClose,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF667EEA),
+              backgroundColor: kAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            child: const Text('Back to sign in'),
+            child: Text(
+              'Back to sign in',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ],
@@ -370,22 +411,11 @@ class _Field extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.06),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: Color(0xFF667EEA), width: 1.5),
-        ),
+      cursorColor: kAccentDeep,
+      style: GoogleFonts.inter(color: kInkDark, fontSize: 15),
+      decoration: creamInputDecoration(
+        label: label,
+        prefixIcon: Icon(icon, color: kInkSubtle, size: 20),
       ),
     );
   }
